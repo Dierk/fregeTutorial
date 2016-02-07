@@ -1,0 +1,5 @@
+--- the main app
+module MyApplication where
+	
+--- the main function	
+main _ = println "Hello World"

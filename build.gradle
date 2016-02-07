@@ -1,0 +1,61 @@
+buildscript { // this should become a dependency of the frege-gradle-plugin in version 0.8
+	repositories {
+	    mavenLocal()
+	    mavenCentral()
+	}
+	dependencies {
+		classpath 'commons-io:commons-io:2.4' // for fregeDoc
+	}
+}
+
+plugins { 
+  id "org.frege-lang" version "0.7" // version is optional, default is latest
+  id "application"
+}
+//mainClassName = 'MyApplication'
+mainClassName = 'CoverFlow'
+
+def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
+if (! jdk8) {
+    println "You should be using Java 8 since we rely on JavaFX, but you run ${System.'java.version'} ."
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { // for the snapshots
+	    url = "https://oss.sonatype.org/content/groups/public" 
+	}
+}
+
+dependencies {
+    compile 'org.frege-lang:frege:3.23.422-ga05a487'
+    //compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
+    //compile 'org.frege-lang:frege-native-gen:1.3' // only if you need native-gen
+
+	compile 'org.frege-lang:fregefx:0.2.0-SNAPSHOT' // only if you need FregeFX (needs local install atm)
+}
+
+fregeDoc {
+	verbose = true
+	module  = "$buildDir/classes/main" // should become default
+}
+
+//fregeQuickCheck {
+//    help = true          // default: false
+//    listAvailable = true // default: false // true will not run the tests
+//    verbose = false      // default: true  // false is _very_ silent
+//    num = 500            // default: 100
+//    includePredicates = ['myFirstPred', 'mySecondPred']
+//    excludePredicates = ['myFirstPred', 'mySecondPred']
+//    moduleName = 'DummyTest'         // prio 1
+//    moduleJar  = 'path/to/my/module.jar'  // prio 2
+//    moduleDir  = "$project.buildDir/classes/test" // prio 3, default
+//    classpathDirectories = ["$project.buildDir/classes/main", "$project.buildDir/classes/test"]
+//    allJvmArgs = ['-Xss4M']
+//}
+
+

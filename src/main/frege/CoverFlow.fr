@@ -1,0 +1,117 @@
+
+--- A simpler version for easier understanding is in SimpleCoverFlow.fr
+
+module CoverFlow where
+
+import fregefx.JavaFxAll 
+import fregefx.JavaFxUtils
+import Data.List(!!)
+
+import DemoUtils
+                      
+totalWidth  = 1024.0
+totalHeight = 768.0                     
+                                                                                                                                                                                                                                                                                                                                                                                       
+main args = do    
+    FregeFX.launch $ withStage buildUI
+    
+getImages = do
+    filenames <- filenamesInDir "/flickr/bigger/"
+    sequence $ map (Image.new) $ map ("file:/flickr/bigger/"++) $ filter (~´.jpg´) filenames
+    
+position :: ImageView -> (Double -> Double) -> IO ImageView
+position imageView calcXoffset = do
+    imageWidth  <- imageView.getImage >>= _.getWidth
+    imageHeight <- imageView.getImage >>= _.getHeight
+    imageView.setTranslateX (calcXoffset imageWidth)              
+    imageView.setTranslateY ((totalHeight - imageHeight) / 3) -- position a bit higher
+    return imageView 
+
+putCenter imageView = position imageView centerPos 
+centerPos imageWidth = (totalWidth  - imageWidth)  / 2
+        
+putLeft imageView = position imageView leftPos
+leftPos imageWidth = - imageWidth        
+                        
+putRight imageView = position imageView rightPos 
+rightPos imageWidth = totalWidth       
+                    
+                            
+buildUI :: Group -> Stage -> IO Group
+buildUI root stage = do
+    stage.setTitle "FregeFX Cover Flow"
+    stage.setWidth  totalWidth
+    stage.setHeight totalHeight    
+    images <- getImages
+    centerImageView <- ImageView.new (images !! 0) :: IO ImageView
+    leftImageView   <- ImageView.new (images !! 0) :: IO ImageView
+    rightImageView  <- ImageView.new (images !! 0) :: IO ImageView    
+    reflect <- Reflection.new () :: IO Reflection
+    reflect.setTopOffset 30
+    reflect.setTopOpacity 0.5
+    root <: do        
+        pane <- Pane.new () :: IO Pane
+        pane `addNode` do
+            r <- Rectangle.new 0.0 0.0 totalWidth totalHeight
+            r.setStyle "-fx-fill:radial-gradient(center 25% 25%, radius 60%, reflect, red, black );"
+            return r       
+        pane `addNode` do
+            leftImageView.setEffect reflect
+            putLeft leftImageView 
+        pane `addNode` do
+            centerImageView.setEffect reflect
+            putCenter centerImageView 
+        pane `addNode` do
+            rightImageView.setEffect reflect
+            putRight rightImageView                   
+    imageNumberRef <- IORef.new 0    
+    viewTripleRef  <- IORef.new (leftImageView, centerImageView, rightImageView)        
+    keyReleasedHandler <- onKeyReleased viewTripleRef imageNumberRef images
+    scene <- stage.getScene
+    scene.setOnKeyReleased  keyReleasedHandler   
+    return root         
+
+type ViewTriple = (ImageView, ImageView, ImageView)        
+
+viewTransition :: ImageView -> Double -> Double -> IO ()
+viewTransition sourceView targetX scale = do
+    duration <- Duration.new 500 :: IO Duration
+    trans <- TranslateTransition.new duration sourceView :: IO TranslateTransition
+    trans.setToX targetX
+    trans.playFromStart
+    scaling <- ScaleTransition.new duration sourceView  :: IO ScaleTransition
+    scaling.setToX scale
+    scaling.setToY scale
+    scaling.playFromStart
+    
+onKeyReleased :: IORef ViewTriple -> IORef Int -> [Image] -> IO (EventHandler KeyEvent)
+onKeyReleased viewTripleRef imageNumberRef images = OnEvent.new handleKeyEvent where
+    handleKeyEvent keyEvent = do
+        -- println . show =<< keyEvent.toString -- enable to inspect key events
+        code <- keyEvent.getCode
+        keyEvent.consume        
+        (left, center, right) <- viewTripleRef.get
+        imageNumber <- imageNumberRef.get
+        codeName <- code.getName
+        case codeName of
+            "Left"  -> do        
+                newIndex = if imageNumber == 0 then images.length-1 else imageNumber-1    
+                left.setImage (images !! newIndex) 
+                imageNumberRef.put newIndex   
+                rightWidth  <- right.getImage >>= _.getWidth            
+                centerWidth <- center.getImage >>= _.getWidth
+                viewTransition center (rightPos rightWidth)   0.3
+                viewTransition left   (centerPos centerWidth) 1.0
+                putLeft right 
+                viewTripleRef.put (right, left, center)
+            "Right" -> do
+                newIndex = if imageNumber == images.length-1 then 0 else imageNumber+1
+                right.setImage (images !! newIndex) 
+                imageNumberRef.put newIndex  
+                leftWidth   <- left.getImage >>= _.getWidth           
+                centerWidth <- center.getImage >>= _.getWidth           
+                viewTransition center (leftPos leftWidth)     0.3
+                viewTransition right  (centerPos centerWidth) 1.0
+                putRight left 
+                viewTripleRef.put (center, right, left)
+            _ -> println $ "no handler for key code name '" ++ codeName ++"'"

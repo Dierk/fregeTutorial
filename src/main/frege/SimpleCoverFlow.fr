@@ -1,0 +1,67 @@
+
+--- A simple picture viewer that can be extended into CoverFlow.fr
+
+module SimpleCoverFlow where
+
+import fregefx.JavaFxAll 
+import fregefx.JavaFxUtils
+import Data.List(!!)
+
+import DemoUtils
+                      
+totalWidth  = 1024.0
+totalHeight = 768.0                     
+                                                                                                                                                                                                                                                                                                                                                                                       
+main args = do    
+    FregeFX.launch $ withStage buildUI
+    
+getImages = do
+    filenames <- filenamesInDir "/flickr/bigger/"
+    sequence $ map (Image.new) $ map ("file:/flickr/bigger/"++) $ filter (~´.jpg´) filenames
+    
+putCenter :: ImageView -> IO ImageView
+putCenter imageView  = do
+    imageWidth  <- imageView.getImage >>= _.getWidth
+    imageHeight <- imageView.getImage >>= _.getHeight
+    imageView.setTranslateX ((totalWidth  - imageWidth)  / 2)              
+    imageView.setTranslateY ((totalHeight - imageHeight) / 3) -- position a bit higher
+    return imageView             
+                    
+buildUI :: Group -> Stage -> IO Group
+buildUI root stage = do
+    stage.setTitle "FregeFX Cover Flow"
+    stage.setWidth  totalWidth
+    stage.setHeight totalHeight    
+    images <- getImages
+    centerImageView <- ImageView.new (images !! 0) :: IO ImageView  
+    root <: do        
+        pane <- Pane.new () :: IO Pane
+        pane `addNode` do
+            Rectangle.new 0.0 0.0 totalWidth totalHeight      
+        pane `addNode` do
+            putCenter centerImageView                  
+    imageNumberRef <- IORef.new 0         
+    keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images
+    scene <- stage.getScene
+    scene.setOnKeyReleased  keyReleasedHandler   
+    return root         
+
+    
+onKeyReleased :: ImageView -> IORef Int -> [Image] -> IO (EventHandler KeyEvent)
+onKeyReleased centerImageView imageNumberRef images = OnEvent.new handleKeyEvent where
+    handleKeyEvent keyEvent = do
+        -- println . show =<< keyEvent.toString -- enable to inspect key events
+        code <- keyEvent.getCode
+        keyEvent.consume        
+        imageNumber <- imageNumberRef.get
+        codeName <- code.getName
+        case codeName of
+            "Left"  -> do        
+                newIndex = if imageNumber == 0 then images.length-1 else imageNumber-1    
+                centerImageView.setImage (images !! newIndex) 
+                imageNumberRef.put newIndex   
+            "Right" -> do
+                newIndex = if imageNumber == images.length-1 then 0 else imageNumber+1
+                centerImageView.setImage (images !! newIndex) 
+                imageNumberRef.put newIndex  
+            _ -> println $ "no handler for key code name '" ++ codeName ++"'"

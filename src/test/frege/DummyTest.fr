@@ -1,0 +1,11 @@
+--- A dummy test that we only put in the codebase such that
+--- we have at least one test and the build does not fail 
+--- because of missing tests.
+
+module DummyTest where
+
+import Test.QuickCheck	
+	
+dummy = once true	
+
+reverseProp = property $ \(list :: [Int]) -> list == reverse (reverse list)
