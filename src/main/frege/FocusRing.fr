@@ -1,0 +1,44 @@
+
+--- A datastructure to keep a focus in a ring of values.
+--- Inspired by the XMonad window manager and SPJ "A Taste of Haskell, OSCON 2007" 
+--- https://www.youtube.com/watch?v=jLj1QV11o9g 
+
+module FocusRing where
+
+data FocusRing a = FocusRing {
+    --- all values left of the focus in reverse order
+    pre  :: [a],
+    --- first value of this list is considered the focus, the tail is all values right of the focus
+    post :: [a]
+} 
+ 
+--- One can create a FocusRing from a list but ftm cannot change the content
+fromList :: [a] -> FocusRing a
+fromList []   = error "FocusRing must not be empty!"
+fromList list = FocusRing [] list
+
+getFocus :: FocusRing a -> a
+getFocus FocusRing{post=p} = head p -- cannot be empty
+
+focusRight :: FocusRing a -> FocusRing a
+-- wrap around
+focusRight (FocusRing pre (f:[]))   = FocusRing [] (reverse (f:pre) )
+focusRight (FocusRing pre (f:rest)) = FocusRing (f:pre) rest
+focusRight (FocusRing pre [])       = error "focus cannot be empty"
+
+
+focusLeft :: FocusRing a -> FocusRing a
+-- wrap around
+focusLeft (FocusRing []      post) = FocusRing (tail reversed) [head reversed] where reversed = reverse post
+focusLeft (FocusRing (p:pre) post) = FocusRing pre (p:post)
+
+
+-- ------------------- Testing --------------------------
+import Test.QuickCheck
+derive Eq (FocusRing a)
+
+private withNonEmptyList invariant = property $ \(l::[Int]) -> length l > 0 ==> invariant l
+
+initialFocus   = withNonEmptyList $ \l -> getFocus (fromList l) == head l 
+swappedFocusRL = withNonEmptyList $ \l -> fromList l == focusLeft  (focusRight (fromList l))
+swappedFocusLR = withNonEmptyList $ \l -> fromList l == focusRight (focusLeft  (fromList l))

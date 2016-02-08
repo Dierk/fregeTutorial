@@ -8,4 +8,4 @@ import Test.QuickCheck
 	
 dummy = once true	
 
-reverseProp = property $ \(list :: [Int]) -> list == reverse (reverse list)
+reverseProp = property $ \(list :: [Int]) -> list ==  reverse (reverse list)

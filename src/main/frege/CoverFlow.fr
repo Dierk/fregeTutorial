@@ -3,11 +3,11 @@
 
 module CoverFlow where
 
-import fregefx.JavaFxAll 
+import fregefx.JavaFxAll hiding (ListView)
 import fregefx.JavaFxUtils
-import Data.List(!!)
 
 import DemoUtils
+import FocusRing
                       
 totalWidth  = 1024.0
 totalHeight = 768.0                     
@@ -43,9 +43,10 @@ buildUI root stage = do
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
     images <- getImages
-    centerImageView <- ImageView.new (images !! 0) :: IO ImageView
-    leftImageView   <- ImageView.new (images !! 0) :: IO ImageView
-    rightImageView  <- ImageView.new (images !! 0) :: IO ImageView    
+    focusRing = FocusRing.fromList images 
+    centerImageView <- ImageView.new (getFocus focusRing) 
+    leftImageView   <- ImageView.new (getFocus $ focusLeft focusRing) 
+    rightImageView  <- ImageView.new (getFocus $ focusRight focusRing) 
     reflect <- Reflection.new () :: IO Reflection
     reflect.setTopOffset 30
     reflect.setTopOpacity 0.5
@@ -64,9 +65,9 @@ buildUI root stage = do
         pane `addNode` do
             rightImageView.setEffect reflect
             putRight rightImageView                   
-    imageNumberRef <- IORef.new 0    
-    viewTripleRef  <- IORef.new (leftImageView, centerImageView, rightImageView)        
-    keyReleasedHandler <- onKeyReleased viewTripleRef imageNumberRef images
+    focusRingRef  <- IORef.new focusRing    
+    viewTripleRef <- IORef.new (leftImageView, centerImageView, rightImageView)        
+    keyReleasedHandler <- onKeyReleased viewTripleRef focusRingRef images
     scene <- stage.getScene
     scene.setOnKeyReleased  keyReleasedHandler   
     return root         
@@ -76,39 +77,39 @@ type ViewTriple = (ImageView, ImageView, ImageView)
 viewTransition :: ImageView -> Double -> Double -> IO ()
 viewTransition sourceView targetX scale = do
     duration <- Duration.new 500 :: IO Duration
-    trans <- TranslateTransition.new duration sourceView :: IO TranslateTransition
+    trans <- TranslateTransition.new duration sourceView 
     trans.setToX targetX
     trans.playFromStart
-    scaling <- ScaleTransition.new duration sourceView  :: IO ScaleTransition
+    scaling <- ScaleTransition.new duration sourceView  
     scaling.setToX scale
     scaling.setToY scale
     scaling.playFromStart
     
-onKeyReleased :: IORef ViewTriple -> IORef Int -> [Image] -> IO (EventHandler KeyEvent)
-onKeyReleased viewTripleRef imageNumberRef images = OnEvent.new handleKeyEvent where
+onKeyReleased :: IORef ViewTriple -> IORef (FocusRing Image) -> [Image] -> IO (EventHandler KeyEvent)
+onKeyReleased viewTripleRef focusRingRef images = OnEvent.new handleKeyEvent where
     handleKeyEvent keyEvent = do
         -- println . show =<< keyEvent.toString -- enable to inspect key events
         code <- keyEvent.getCode
         keyEvent.consume        
         (left, center, right) <- viewTripleRef.get
-        imageNumber <- imageNumberRef.get
+        focusRing <- focusRingRef.get
         codeName <- code.getName
         case codeName of
-            "Left"  -> do        
-                newIndex = if imageNumber == 0 then images.length-1 else imageNumber-1    
-                left.setImage (images !! newIndex) 
-                imageNumberRef.put newIndex   
-                rightWidth  <- right.getImage >>= _.getWidth            
+            "Left"  -> do    
+                newFocusRing = focusLeft focusRing   
+                left.setImage (getFocus newFocusRing) 
+                focusRingRef.put newFocusRing   
+                rightWidth  <- right.getImage  >>= _.getWidth            
                 centerWidth <- center.getImage >>= _.getWidth
                 viewTransition center (rightPos rightWidth)   0.3
                 viewTransition left   (centerPos centerWidth) 1.0
                 putLeft right 
                 viewTripleRef.put (right, left, center)
             "Right" -> do
-                newIndex = if imageNumber == images.length-1 then 0 else imageNumber+1
-                right.setImage (images !! newIndex) 
-                imageNumberRef.put newIndex  
-                leftWidth   <- left.getImage >>= _.getWidth           
+                newFocusRing = focusRight focusRing   
+                right.setImage (getFocus newFocusRing) 
+                focusRingRef.put newFocusRing 
+                leftWidth   <- left.getImage   >>= _.getWidth           
                 centerWidth <- center.getImage >>= _.getWidth           
                 viewTransition center (leftPos leftWidth)     0.3
                 viewTransition right  (centerPos centerWidth) 1.0
