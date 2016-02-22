@@ -17,7 +17,7 @@ main args = do
     
 getImages = do
     filenames <- filenamesInDir "/flickr/bigger/"
-    sequence $ map (Image.new) $ map ("file:/flickr/bigger/"++) $ filter (~´.jpg´) filenames
+    sequence $ map (Image.new) $ map ("file:/flickr/bigger/"++) $ filter (~´.jpg$´) filenames
     
 putCenter :: ImageView -> IO ImageView
 putCenter imageView  = do
