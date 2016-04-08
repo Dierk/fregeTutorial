@@ -3,6 +3,7 @@
 
 module CoverFlow where
 
+import fregefx.JavaFxType 
 import fregefx.JavaFxAll hiding (ListView)
 import fregefx.JavaFxUtils
 
@@ -17,68 +18,80 @@ totalHeight  = 768.0
 main args = do    
     FregeFX.launch $ withStage buildUI
     
-getImages = do
-    filenames <- filenamesInDir imageDirName
-    sequence $ map (Image.new) $ map (urlPrefix++) $ filter (~´.jpg´) filenames
+loadImages :: ([String] -> JFX ()) -> JFX ()    
+loadImages onLoaded = do
+    readAsync <- Bridge.new readFileNames onLoaded
+    readAsync.bridge      
     
-position :: ImageView -> (Double -> Double) -> IO ImageView
+readFileNames ∷ () -> IO [String]
+readFileNames _ = do
+    filenames <- filenamesInDir imageDirName 
+    return $ map (urlPrefix++) $ filter (~´.jpg´) filenames
+    
+position :: ImageView -> (Double -> Double) -> JFX ImageView
 position imageView calcXoffset = do
-    imageWidth  <- imageView.getImage >>= _.getWidth
-    imageHeight <- imageView.getImage >>= _.getHeight
+    imageWidth  <- widthOf  0.0 imageView
+    imageHeight <- heightOf 0.0 imageView
     imageView.setTranslateX (calcXoffset imageWidth)              
     imageView.setTranslateY ((totalHeight - imageHeight) / 3) -- position a bit higher
     return imageView 
 
-putCenter imageView = position imageView centerPos 
+putCenter imageView  = position imageView centerPos 
 centerPos imageWidth = (totalWidth  - imageWidth)  / 2
         
-putLeft imageView = position imageView leftPos
+putLeft imageView  = position imageView leftPos
 leftPos imageWidth = - imageWidth        
                         
-putRight imageView = position imageView rightPos 
+putRight imageView  = position imageView rightPos 
 rightPos imageWidth = totalWidth       
-                    
-                            
-buildUI :: Group -> Stage -> IO Group
+                                                
+buildUI :: Group -> Stage -> JFX Group
 buildUI root stage = do
     stage.setTitle "FregeFX Cover Flow"
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
-    images <- getImages
-    focusRing = FocusRing.fromList images 
-    centerImageView <- ImageView.new (getFocus focusRing) 
-    leftImageView   <- ImageView.new (getFocus $ focusLeft focusRing) 
-    rightImageView  <- ImageView.new (getFocus $ focusRight focusRing) 
-    reflect <- Reflection.new () :: IO Reflection
-    reflect.setTopOffset 30
-    reflect.setTopOpacity 0.5
-    root <: do        
-        pane <- Pane.new () :: IO Pane
+        
+    pane <- Pane.new () :: JFX Pane
+    root <: do                
         pane `addNode` do
             r <- Rectangle.new 0.0 0.0 totalWidth totalHeight
             r.setStyle "-fx-fill:radial-gradient(center 25% 25%, radius 60%, reflect, red, black );"
             return r       
-        pane `addNode` do
-            leftImageView.setEffect reflect
-            putLeft leftImageView 
-        pane `addNode` do
-            centerImageView.setEffect reflect
-            putCenter centerImageView 
-        pane `addNode` do
-            rightImageView.setEffect reflect
-            putRight rightImageView                   
-    focusRingRef  <- IORef.new focusRing    
-    viewTripleRef <- IORef.new (leftImageView, centerImageView, rightImageView)        
-    keyReleasedHandler <- onKeyReleased viewTripleRef focusRingRef images
-    scene <- stage.getScene
-    scene.setOnKeyReleased  keyReleasedHandler   
+                       
+    scene <- stage.getScene    
+    loadImages (onImagesLoaded scene pane)                  
     return root         
+    
+onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
+onImagesLoaded scene pane urls = do    
+    -- create views
+    focusRing = FocusRing.fromList $ map Image.new urls 
+    centerImageView <- ImageView.new =<< getFocus focusRing
+    leftImageView   <- ImageView.new =<< getFocus (focusLeft focusRing)
+    rightImageView  <- ImageView.new =<< getFocus (focusRight focusRing)
+    -- layout
+    reflect <- Reflection.new () :: JFX Reflection
+    reflect.setTopOffset 30
+    reflect.setTopOpacity 0.5
+    pane `addNode` do
+        leftImageView.setEffect reflect
+        putLeft leftImageView 
+    pane `addNode` do
+        centerImageView.setEffect reflect
+        putCenter centerImageView 
+    pane `addNode` do
+        rightImageView.setEffect reflect
+        putRight rightImageView  
+    -- binding           
+    viewTripleRef <- JFXRef.new (leftImageView, centerImageView, rightImageView)                    
+    focusRingRef  <- JFXRef.new focusRing           
+    keyReleasedHandler <- onKeyReleased viewTripleRef focusRingRef     
+    scene.setOnKeyReleased  keyReleasedHandler 
+    return ()      
 
-type ViewTriple = (ImageView, ImageView, ImageView)        
-
-viewTransition :: ImageView -> Double -> Double -> IO ()
+viewTransition :: ImageView -> Double -> Double -> JFX ()
 viewTransition sourceView targetX scale = do
-    duration <- Duration.new 500 :: IO Duration
+    duration <- Duration.new 500.0
     trans <- TranslateTransition.new duration sourceView 
     trans.setToX targetX
     trans.playFromStart
@@ -87,34 +100,44 @@ viewTransition sourceView targetX scale = do
     scaling.setToY scale
     scaling.playFromStart
     
-onKeyReleased :: IORef ViewTriple -> IORef (FocusRing Image) -> [Image] -> IO (EventHandler KeyEvent)
-onKeyReleased viewTripleRef focusRingRef images = OnEvent.new handleKeyEvent where
+type ViewTriple = (ImageView, ImageView, ImageView)  
+type ImageRing  = FocusRing (JFX Image)
+
+widthOf :: Double -> ImageView -> JFX Double
+widthOf default imageView =    
+    maybe (return default) Image.getWidth =<< imageView.getImage
+    
+heightOf :: Double -> ImageView -> JFX Double    
+heightOf default imageView = 
+    maybe (return default) Image.getHeight =<< imageView.getImage
+
+onKeyReleased :: JFXRef ViewTriple -> JFXRef ImageRing -> JFX (EventHandler KeyEvent)
+onKeyReleased viewTripleRef focusRingRef = OnEvent.new handleKeyEvent where
     handleKeyEvent keyEvent = do
-        -- println . show =<< keyEvent.toString -- enable to inspect key events
-        code <- keyEvent.getCode
-        keyEvent.consume        
+        -- jfxlog . show =<< keyEvent.toString -- enable to inspect key events
         (left, center, right) <- viewTripleRef.get
         focusRing <- focusRingRef.get
-        codeName <- code.getName
+        codeName <- keyEvent.getCode >>= _.getName
         case codeName of
             "Left"  -> do    
                 newFocusRing = focusLeft focusRing   
-                left.setImage (getFocus newFocusRing) 
+                left.setImage =<< getFocus newFocusRing 
                 focusRingRef.put newFocusRing   
-                rightWidth  <- right.getImage  >>= _.getWidth            
-                centerWidth <- center.getImage >>= _.getWidth
+                rightWidth  <- widthOf 0.0 right
+                centerWidth <- widthOf 0.0 center
                 viewTransition center (rightPos rightWidth)   0.3
                 viewTransition left   (centerPos centerWidth) 1.0
                 putLeft right 
                 viewTripleRef.put (right, left, center)
             "Right" -> do
                 newFocusRing = focusRight focusRing   
-                right.setImage (getFocus newFocusRing) 
+                right.setImage =<< getFocus newFocusRing 
                 focusRingRef.put newFocusRing 
-                leftWidth   <- left.getImage   >>= _.getWidth           
-                centerWidth <- center.getImage >>= _.getWidth           
+                leftWidth   <- widthOf 0.0 left 
+                centerWidth <- widthOf 0.0 center    
                 viewTransition center (leftPos leftWidth)     0.3
                 viewTransition right  (centerPos centerWidth) 1.0
                 putRight left 
                 viewTripleRef.put (center, right, left)
-            _ -> println $ "no handler for key code name '" ++ codeName ++"'"
+            _ -> jfxlog $ "no handler for key code name '" ++ codeName ++"'"
+

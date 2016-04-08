@@ -1,11 +1,20 @@
 {-- Utilities to be used in the tutorial demos.
-    Most of them should later go into their respective libraries.
-    todo dk: IO ImageView (and likely many others) may need to become MutableIO.
+    Most of them should later go into their respective libraries.    
 -}
 module DemoUtils where
 
-import fregefx.JavaFxAll 
+import fregefx.JavaFxType 
+import fregefx.JavaFxAll
 import fregefx.JavaFxUtils
+
+type JFXRef a = MutableJFX (Ref a) 
+readJFXRef    = Ref.get
+writeJFXRef   = Ref.put
+modifyJFXRef  = Ref.modify
+newJFXRef     = Ref.new
+
+jfxlog :: String -> JFX ()
+jfxlog message = if (traceLn message) then return () else return ()
 
 filenamesInDir :: String -> IO [String]
 filenamesInDir rootDirName  = do        
@@ -25,7 +34,7 @@ instance Family Pane where
     children pane = pane.getChildren
 
 --- Nodes can be added just like Regions. todo dk: add to FregeFX, see if there is a general solution.
-addNode :: Family t => t -> IO Node -> IO t
+addNode :: Family t => t -> JFX Node -> JFX t
 addNode family builder = do
     child <- builder
     family.children >>= _.add child

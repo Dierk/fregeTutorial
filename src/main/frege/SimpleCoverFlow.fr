@@ -1,67 +1,85 @@
 
 --- A simple picture viewer that can be extended into CoverFlow.fr
 
-module SimpleCoverFlow where
+module SimpleCoverFlow where 
 
+import fregefx.JavaFxType
 import fregefx.JavaFxAll 
 import fregefx.JavaFxUtils
 import Data.List(!!)
 
 import DemoUtils
-                      
+         
+imageDirName = "/flickr/bigger/"    
+urlPrefix    = "file:" ++ imageDirName                                   
 totalWidth  = 1024.0
 totalHeight = 768.0                     
                                                                                                                                                                                                                                                                                                                                                                                        
 main args = do    
     FregeFX.launch $ withStage buildUI
-    
-getImages = do
-    filenames <- filenamesInDir "/flickr/bigger/"
-    sequence $ map (Image.new) $ map ("file:/flickr/bigger/"++) $ filter (~´.jpg$´) filenames
-    
-putCenter :: ImageView -> IO ImageView
-putCenter imageView  = do
-    imageWidth  <- imageView.getImage >>= _.getWidth
-    imageHeight <- imageView.getImage >>= _.getHeight
-    imageView.setTranslateX ((totalWidth  - imageWidth)  / 2)              
-    imageView.setTranslateY ((totalHeight - imageHeight) / 3) -- position a bit higher
-    return imageView             
-                    
-buildUI :: Group -> Stage -> IO Group
+                                    
+buildUI :: Group -> Stage -> JFX Group
 buildUI root stage = do
-    stage.setTitle "FregeFX Cover Flow"
+    stage.setTitle "FregeFX Picture Viewer"
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
-    images <- getImages
-    centerImageView <- ImageView.new (images !! 0) :: IO ImageView  
+        
+    pane <- Pane.new () :: JFX Pane
     root <: do        
-        pane <- Pane.new () :: IO Pane
         pane `addNode` do
             Rectangle.new 0.0 0.0 totalWidth totalHeight      
-        pane `addNode` do
-            putCenter centerImageView                  
-    imageNumberRef <- IORef.new 0         
-    keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images
+                 
     scene <- stage.getScene
-    scene.setOnKeyReleased  keyReleasedHandler   
+    loadImages (onImagesLoaded scene pane)   
     return root         
 
+loadImages :: ([String] -> JFX ()) -> JFX ()    
+loadImages onLoaded = do
+    readAsync <- Bridge.new readFileNames onLoaded
+    readAsync.bridge  
+
+onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
+onImagesLoaded scene pane urls = do    
+    -- create views
+    images = map Image.new urls
+    centerImageView <- ImageView.new =<< (images !! 0)   
+    -- layout
+    pane `addNode` do
+        putCenter centerImageView 
+    -- binding           
+    imageNumberRef <- JFXRef.new 0         
+    keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images    
+    scene.setOnKeyReleased  keyReleasedHandler   
+    return ()      
+
+readFileNames ∷ () -> IO [String]
+readFileNames _ = do
+    filenames <- filenamesInDir imageDirName 
+    return $ map (urlPrefix++) $ filter (~´.jpg´) filenames
     
-onKeyReleased :: ImageView -> IORef Int -> [Image] -> IO (EventHandler KeyEvent)
+putCenter :: ImageView -> JFX ImageView
+putCenter imageView  = do
+    mayImage <- imageView.getImage
+    imageWidth  <- maybe (return 0.0) _.getWidth  mayImage
+    imageHeight <- maybe (return 0.0) _.getHeight mayImage
+    imageView.setTranslateX ((totalWidth  - imageWidth)  / 2)              
+    imageView.setTranslateY ((totalHeight - imageHeight) / 3) -- position a bit higher
+    return imageView 
+            
+onKeyReleased :: ImageView -> JFXRef Int -> [JFX Image] -> JFX (EventHandler KeyEvent)
 onKeyReleased centerImageView imageNumberRef images = OnEvent.new handleKeyEvent where
     handleKeyEvent keyEvent = do
-        -- println . show =<< keyEvent.toString -- enable to inspect key events
-        code <- keyEvent.getCode
-        keyEvent.consume        
+        -- jfxlog . show =<< keyEvent.toString -- enable to inspect key events
+        code <- keyEvent.getCode   
         imageNumber <- imageNumberRef.get
         codeName <- code.getName
         case codeName of
             "Left"  -> do        
                 newIndex = if imageNumber == 0 then images.length-1 else imageNumber-1    
-                centerImageView.setImage (images !! newIndex) 
+                centerImageView.setImage =<< (images !! newIndex) 
                 imageNumberRef.put newIndex   
             "Right" -> do
                 newIndex = if imageNumber == images.length-1 then 0 else imageNumber+1
-                centerImageView.setImage (images !! newIndex) 
+                centerImageView.setImage =<< (images !! newIndex)  
                 imageNumberRef.put newIndex  
-            _ -> println $ "no handler for key code name '" ++ codeName ++"'"
+            _ -> jfxlog $ "no handler for key code name '" ++ codeName ++"'"
