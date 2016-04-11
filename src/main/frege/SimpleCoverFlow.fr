@@ -30,27 +30,19 @@ buildUI root stage = do
             Rectangle.new 0.0 0.0 totalWidth totalHeight      
                  
     scene <- stage.getScene
-    loadImages (onImagesLoaded scene pane)   
-    return root         
-
-loadImages :: ([String] -> JFX ()) -> JFX ()    
-loadImages onLoaded = do
-    readAsync <- Bridge.new readFileNames onLoaded
-    readAsync.bridge  
-
-onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
-onImagesLoaded scene pane urls = do    
-    -- create views
-    images = map Image.new urls
-    centerImageView <- ImageView.new =<< (images !! 0)   
-    -- layout
-    pane `addNode` do
-        putCenter centerImageView 
-    -- binding           
-    imageNumberRef <- JFXRef.new 0         
-    keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images    
-    scene.setOnKeyReleased  keyReleasedHandler   
-    return ()      
+    readFileNames `thenDo` \urls -> do    
+        -- create views
+        images = map Image.new urls
+        centerImageView <- ImageView.new =<< (images !! 0)   
+        -- layout
+        pane `addNode` do
+            putCenter centerImageView 
+        -- binding           
+        imageNumberRef <- JFXRef.new 0         
+        keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images    
+        scene.setOnKeyReleased  keyReleasedHandler   
+             
+    return root                 
 
 readFileNames ∷ () -> IO [String]
 readFileNames _ = do

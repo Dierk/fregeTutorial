@@ -17,12 +17,7 @@ totalHeight  = 768.0
                                                                                                                                                                                                                                                                                                                                                                                        
 main args = do    
     FregeFX.launch $ withStage buildUI
-    
-loadImages :: ([String] -> JFX ()) -> JFX ()    
-loadImages onLoaded = do
-    readAsync <- Bridge.new readFileNames onLoaded
-    readAsync.bridge      
-    
+            
 readFileNames ∷ () -> IO [String]
 readFileNames _ = do
     filenames <- filenamesInDir imageDirName 
@@ -58,8 +53,8 @@ buildUI root stage = do
             r.setStyle "-fx-fill:radial-gradient(center 25% 25%, radius 60%, reflect, red, black );"
             return r       
                        
-    scene <- stage.getScene    
-    loadImages (onImagesLoaded scene pane)                  
+    scene <- stage.getScene     
+    readFileNames `thenDo` onImagesLoaded scene pane                  
     return root         
     
 onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
@@ -86,8 +81,7 @@ onImagesLoaded scene pane urls = do
     viewTripleRef <- JFXRef.new (leftImageView, centerImageView, rightImageView)                    
     focusRingRef  <- JFXRef.new focusRing           
     keyReleasedHandler <- onKeyReleased viewTripleRef focusRingRef     
-    scene.setOnKeyReleased  keyReleasedHandler 
-    return ()      
+    scene.setOnKeyReleased  keyReleasedHandler      
 
 viewTransition :: ImageView -> Double -> Double -> JFX ()
 viewTransition sourceView targetX scale = do
