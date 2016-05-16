@@ -7,16 +7,6 @@ import fregefx.JavaFxType
 import fregefx.JavaFxAll
 import fregefx.JavaFxUtils
 
-type JFXRef a = MutableJFX (Ref a) 
-
-jfxlog :: String -> JFX ()
-jfxlog message = if (traceLn message) then return () else return ()
-
-thenDo ∷ (()→IO a) → (a→JFX ()) → JFX ()
-thenDo ioAction jfxAction = do
-    doAsync <- Bridge.new ioAction jfxAction
-    doAsync.bridge 
-
 filenamesInDir :: String -> IO [String]
 filenamesInDir rootDirName  = do        
     dir <- File.new rootDirName 
@@ -29,14 +19,3 @@ filenamesInDir rootDirName  = do
                 let unwrap i = return . unJust =<< array.getAt i
                 in  map unwrap [0..length-1]            
             sequence ioFilenameList 
-            
---- Pane is a Family. todo dk: add to FregeFX
-instance Family Pane where
-    children pane = pane.getChildren
-
---- Nodes can be added just like Regions. todo dk: add to FregeFX, see if there is a general solution.
-addNode :: Family t => t -> JFX Node -> JFX t
-addNode family builder = do
-    child <- builder
-    family.children >>= _.add child
-    return family            

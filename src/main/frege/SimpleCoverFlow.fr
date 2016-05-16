@@ -6,7 +6,7 @@ module SimpleCoverFlow where
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 
 import fregefx.JavaFxUtils
-import Data.List(!!)
+-- import Data.List(!!)
 
 import DemoUtils
          
@@ -30,22 +30,24 @@ buildUI root stage = do
             Rectangle.new 0.0 0.0 totalWidth totalHeight      
                  
     scene <- stage.getScene
-    readFileNames `thenDo` \urls -> do    
-        -- create views
-        images = map Image.new urls
-        centerImageView <- ImageView.new =<< (images !! 0)   
-        -- layout
-        pane `addNode` do
-            putCenter centerImageView 
-        -- binding           
-        imageNumberRef <- JFXRef.new 0         
-        keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images    
-        scene.setOnKeyReleased  keyReleasedHandler   
-             
+    readFileNames `thenDo` (makeImages scene pane)
     return root                 
 
-readFileNames ∷ () -> IO [String]
-readFileNames _ = do
+makeImages :: Scene -> Pane -> [String] -> JFX ()
+makeImages scene pane urls = do
+    -- create views
+    images = map Image.new urls
+    centerImageView <- ImageView.new =<< (images !! 0)
+    -- layout
+    pane `addNode` do
+        putCenter centerImageView
+    -- binding
+    imageNumberRef <- JFXRef.new 0
+    keyReleasedHandler <- onKeyReleased centerImageView imageNumberRef images
+    scene.setOnKeyReleased  keyReleasedHandler
+
+readFileNames ∷ IO [String]
+readFileNames = do
     filenames <- filenamesInDir imageDirName 
     return $ map (urlPrefix++) $ filter (~´.jpg´) filenames
     
@@ -59,7 +61,7 @@ putCenter imageView  = do
     return imageView 
             
 onKeyReleased :: ImageView -> JFXRef Int -> [JFX Image] -> JFX (EventHandler KeyEvent)
-onKeyReleased centerImageView imageNumberRef images = OnEvent.new handleKeyEvent where
+onKeyReleased centerImageView imageNumberRef images = return (onAction handleKeyEvent) where
     handleKeyEvent keyEvent = do
         -- jfxlog . show =<< keyEvent.toString -- enable to inspect key events
         code <- keyEvent.getCode   

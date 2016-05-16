@@ -20,9 +20,12 @@ def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
 if (! jdk8) {
     println "You should be using Java 8 since we rely on JavaFX, but you run ${System.'java.version'} ."
 }
+ext {
+	javaTarget = 1.7
+}
 
 sourceCompatibility = 1.8
-targetCompatibility = 1.8
+targetCompatibility = javaTarget
 
 repositories {
     mavenLocal()
@@ -34,12 +37,20 @@ repositories {
 
 dependencies {
     // CHANGE NEXT LINE BELOW IF YOU WANT TO USE A DIFFERENT COMPILER
-    compile 'org.frege-lang:frege:3.23.422-ga05a487'
-    compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
+    compile 'org.frege-lang:frege:3.24-7.30'
+//    compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
     //compile 'org.frege-lang:frege-native-gen:1.3' // only if you need native-gen
 
-    compile 'org.frege-lang:fregefx:0.2.1-SNAPSHOT' // only if you need FregeFX 
+    compile 'org.frege-lang:fregefx:0.3.1' // only if you need FregeFX
 }
+
+compileFrege {
+	target = javaTarget
+}
+compileTestFrege {
+	target = javaTarget
+}
+
 
 fregeDoc {
 	verbose = true

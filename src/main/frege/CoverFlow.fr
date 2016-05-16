@@ -8,18 +8,18 @@ import fregefx.JavaFxAll hiding (ListView)
 import fregefx.JavaFxUtils
 
 import DemoUtils
-import FocusRing
+import FocusRing                                  
                  
 imageDirName = "/flickr/bigger/"    
 urlPrefix    = "file:" ++ imageDirName                       
 totalWidth   = 1024.0
 totalHeight  = 768.0                     
                                                                                                                                                                                                                                                                                                                                                                                        
-main args = do    
+main args = do
     FregeFX.launch $ withStage buildUI
             
-readFileNames ∷ () -> IO [String]
-readFileNames _ = do
+readFileNames ∷ IO [String]
+readFileNames = do
     filenames <- filenamesInDir imageDirName 
     return $ map (urlPrefix++) $ filter (~´.jpg´) filenames
     
@@ -41,7 +41,7 @@ putRight imageView  = position imageView rightPos
 rightPos imageWidth = totalWidth       
                                                 
 buildUI :: Group -> Stage -> JFX Group
-buildUI root stage = do
+buildUI root stage = do     
     stage.setTitle "FregeFX Cover Flow"
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
@@ -54,7 +54,7 @@ buildUI root stage = do
             return r       
                        
     scene <- stage.getScene     
-    readFileNames `thenDo` onImagesLoaded scene pane                  
+    readFileNames `thenDo` (onImagesLoaded scene pane)
     return root         
     
 onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
@@ -65,7 +65,7 @@ onImagesLoaded scene pane urls = do
     leftImageView   <- ImageView.new =<< getFocus (focusLeft focusRing)
     rightImageView  <- ImageView.new =<< getFocus (focusRight focusRing)
     -- layout
-    reflect <- Reflection.new () :: JFX Reflection
+    reflect <- Reflection.new () :: JFX Reflection 
     reflect.setTopOffset 30
     reflect.setTopOpacity 0.5
     pane `addNode` do
@@ -98,15 +98,15 @@ type ViewTriple = (ImageView, ImageView, ImageView)
 type ImageRing  = FocusRing (JFX Image)
 
 widthOf :: Double -> ImageView -> JFX Double
-widthOf default imageView =    
-    maybe (return default) Image.getWidth =<< imageView.getImage
+widthOf standard imageView =
+    maybe (return standard) Image.getWidth =<< imageView.getImage
     
 heightOf :: Double -> ImageView -> JFX Double    
-heightOf default imageView = 
-    maybe (return default) Image.getHeight =<< imageView.getImage
+heightOf standard imageView =
+    maybe (return standard) Image.getHeight =<< imageView.getImage
 
 onKeyReleased :: JFXRef ViewTriple -> JFXRef ImageRing -> JFX (EventHandler KeyEvent)
-onKeyReleased viewTripleRef focusRingRef = OnEvent.new handleKeyEvent where
+onKeyReleased viewTripleRef focusRingRef = return (onAction handleKeyEvent) where
     handleKeyEvent keyEvent = do
         -- jfxlog . show =<< keyEvent.toString -- enable to inspect key events
         (left, center, right) <- viewTripleRef.get
