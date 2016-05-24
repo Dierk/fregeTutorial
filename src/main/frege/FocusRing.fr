@@ -31,14 +31,3 @@ focusLeft :: FocusRing a -> FocusRing a
 -- wrap around
 focusLeft (FocusRing []      post) = FocusRing (tail reversed) [head reversed] where reversed = reverse post
 focusLeft (FocusRing (p:pre) post) = FocusRing pre (p:post)
-
-
--- ------------------- Testing --------------------------
-import Test.QuickCheck
-derive Eq (FocusRing a)
-
-private withNonEmptyList invariant = property $ \(l::[Int]) -> length l > 0 ==> invariant l
-
-initialFocus   = withNonEmptyList $ \l -> getFocus (fromList l) == head l 
-swappedFocusRL = withNonEmptyList $ \l -> fromList l == focusLeft  (focusRight (fromList l))
-swappedFocusLR = withNonEmptyList $ \l -> fromList l == focusRight (focusLeft  (fromList l))

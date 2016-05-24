@@ -1,0 +1,11 @@
+module FocusRingTest where
+
+import FocusRing
+import Test.QuickCheck
+derive Eq (FocusRing a)
+
+private withNonEmptyList invariant = property $ \(l::[Int]) -> length l > 0 ==> invariant l
+
+initialFocus   = withNonEmptyList $ \l -> getFocus (fromList l) == head l 
+swappedFocusRL = withNonEmptyList $ \l -> fromList l == focusLeft  (focusRight (fromList l))
+swappedFocusLR = withNonEmptyList $ \l -> fromList l == focusRight (focusLeft  (fromList l))

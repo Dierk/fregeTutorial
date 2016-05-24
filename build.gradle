@@ -14,7 +14,8 @@ plugins {
 }
 
 //mainClassName = 'MyApplication'
-mainClassName = 'CoverFlow'
+//mainClassName = 'CoverFlow'
+mainClassName = 'Pong'
 
 def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
 if (! jdk8) {
@@ -41,7 +42,7 @@ dependencies {
 //    compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
     //compile 'org.frege-lang:frege-native-gen:1.3' // only if you need native-gen
 
-    compile 'org.frege-lang:fregefx:0.3.1' // only if you need FregeFX
+    compile 'org.frege-lang:fregefx:0.3.2-SNAPSHOT' // only if you need FregeFX
 }
 
 compileFrege {

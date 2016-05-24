@@ -1,0 +1,63 @@
+
+--- A simple picture viewer that can be extended into CoverFlow.fr
+
+module Pong where 
+
+import fregefx.JavaFxType
+import fregefx.JavaFxAll 
+import fregefx.JavaFxUtils
+                              
+totalWidth  = 1024.0
+totalHeight = 768.0    
+ballSize    = 20.0            
+                                                                                                                                                                                                                                                                                                                                                                                       
+main args = do    
+    FregeFX.launch $ withStage buildUI
+                                    
+buildUI :: Group -> Stage -> JFX Group
+buildUI root stage = do
+    stage.setTitle "FregeFX Pong"      
+    
+    ball <- Rectangle.new 0.0 0.0 ballSize ballSize  
+        
+    pane <- Pane.new () :: JFX Pane
+    root <: do        
+        pane `addNode` do
+            r <- Rectangle.new 0.0 0.0 totalWidth totalHeight            
+            r.setStyle "-fx-fill:papayawhip;"
+            return r        
+        pane `addNode` (return ball)
+                 
+    scene <- stage.getScene
+    
+    keyReleasedHandler <- onKeyReleased ball
+    scene.setOnKeyReleased  keyReleasedHandler
+
+    return root                 
+    
+    
+moveBall x y dx dy ball  
+	| x < 0                      -> moveBall (x-dx) y   (-dx)  dy  ball
+    | x + ballSize > totalWidth  -> moveBall (x-dx) y   (-dx)  dy  ball
+	| y < 0                      -> moveBall  x    (y-dy) dx (-dy) ball
+    | y + ballSize > totalHeight -> moveBall  x    (y-dy) dx (-dy) ball
+    
+moveBall x y dx dy ball = do      
+    duration <- Duration.new 1.0
+    trans <- TranslateTransition.new duration ball 
+    trans.setToX x
+    trans.setToY y
+    trans.setOnFinished $ onAction $ \_ -> moveBall (x+dx) (y+dy) dx dy ball 
+    trans.playFromStart
+    
+           
+onKeyReleased :: Node -> JFX (EventHandler KeyEvent)
+onKeyReleased ball = return (onAction handleKeyEvent) where
+    handleKeyEvent keyEvent = do
+        -- jfxlog . show =<< keyEvent.toString -- enable to inspect key events
+        code <- keyEvent.getCode   
+        codeName <- code.getName
+        case codeName of
+            "Space" -> moveBall 0.0 0.0 15.0 8.0 ball                            
+            "Esc"   -> (System.exit 0) `thenDo` (const $ return ())          
+            _       -> jfxlog $ "no handler for key code name '" ++ codeName ++"'"
