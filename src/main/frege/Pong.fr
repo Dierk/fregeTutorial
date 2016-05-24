@@ -32,9 +32,9 @@ buildUI root stage = do
     
 --- bouncing cases when moving the ball    
 moveBall x y dx dy ball  
-	| x < 0                      -> moveBall (x-dx) y   (-dx)  dy  ball
+    | x < 0                      -> moveBall (x-dx) y   (-dx)  dy  ball
     | x + ballSize > totalWidth  -> moveBall (x-dx) y   (-dx)  dy  ball
-	| y < 0                      -> moveBall  x    (y-dy) dx (-dy) ball
+    | y < 0                      -> moveBall  x    (y-dy) dx (-dy) ball
     | y + ballSize > totalHeight -> moveBall  x    (y-dy) dx (-dy) ball
     
 --- general case: paint position and move to next position    
