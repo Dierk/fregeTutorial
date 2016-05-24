@@ -1,5 +1,5 @@
 
---- A simple picture viewer that can be extended into CoverFlow.fr
+--- Heart of the Pong game: the bouncing ball
 
 module Pong where 
 
@@ -16,32 +16,28 @@ main args = do
                                     
 buildUI :: Group -> Stage -> JFX Group
 buildUI root stage = do
-    stage.setTitle "FregeFX Pong"      
-    
-    ball <- Rectangle.new 0.0 0.0 ballSize ballSize  
-        
+    stage.setTitle "FregeFX Pong"          
+    ball <- Rectangle.new 0.0 0.0 ballSize ballSize          
     pane <- Pane.new () :: JFX Pane
     root <: do        
         pane `addNode` do
-            r <- Rectangle.new 0.0 0.0 totalWidth totalHeight            
-            r.setStyle "-fx-fill:papayawhip;"
-            return r        
+            background <- Rectangle.new 0.0 0.0 totalWidth totalHeight            
+            background.setStyle "-fx-fill:papayawhip;"
+            return background        
         pane `addNode` (return ball)
                  
-    scene <- stage.getScene
-    
-    keyReleasedHandler <- onKeyReleased ball
-    scene.setOnKeyReleased  keyReleasedHandler
-
+    handler <- onKeyReleased ball                 
+    stage.getScene >>= _.setOnKeyReleased handler 
     return root                 
     
-    
+--- bouncing cases when moving the ball    
 moveBall x y dx dy ball  
 	| x < 0                      -> moveBall (x-dx) y   (-dx)  dy  ball
     | x + ballSize > totalWidth  -> moveBall (x-dx) y   (-dx)  dy  ball
 	| y < 0                      -> moveBall  x    (y-dy) dx (-dy) ball
     | y + ballSize > totalHeight -> moveBall  x    (y-dy) dx (-dy) ball
     
+--- general case: paint position and move to next position    
 moveBall x y dx dy ball = do      
     duration <- Duration.new 1.0
     trans <- TranslateTransition.new duration ball 
@@ -49,8 +45,7 @@ moveBall x y dx dy ball = do
     trans.setToY y
     trans.setOnFinished $ onAction $ \_ -> moveBall (x+dx) (y+dy) dx dy ball 
     trans.playFromStart
-    
-           
+        
 onKeyReleased :: Node -> JFX (EventHandler KeyEvent)
 onKeyReleased ball = return (onAction handleKeyEvent) where
     handleKeyEvent keyEvent = do
