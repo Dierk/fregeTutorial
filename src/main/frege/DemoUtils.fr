@@ -18,4 +18,4 @@ filenamesInDir rootDirName  = do
             ioFilenameList = 
                 let unwrap i = return . unJust =<< array.getAt i
                 in  map unwrap [0..length-1]            
-            sequence ioFilenameList 
+            sequence ioFilenameList                      

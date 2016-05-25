@@ -5,7 +5,7 @@ module Pong where
 
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 
-import fregefx.JavaFxUtils
+import fregefx.JavaFxUtils 
                               
 totalWidth  = 1024.0
 totalHeight = 768.0    
@@ -20,10 +20,10 @@ buildUI root stage = do
     ball <- Rectangle.new 0.0 0.0 ballSize ballSize          
     pane <- Pane.new () :: JFX Pane
     root <: do        
-        pane `addNode` do
-            background <- Rectangle.new 0.0 0.0 totalWidth totalHeight            
-            background.setStyle "-fx-fill:papayawhip;"
-            return background        
+        pane `addNode` do                        
+            bg <- Rectangle.new 0.0 0.0 totalWidth totalHeight 
+            bg.setStyle "-fx-fill:papayawhip;"
+            return bg    
         pane `addNode` (return ball)
                  
     handler <- onKeyReleased ball                 
