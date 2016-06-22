@@ -41,7 +41,7 @@ putRight imageView  = position imageView rightPos
 rightPos imageWidth = totalWidth       
                                                 
 buildUI :: Group -> Stage -> JFX Group
-buildUI root stage = do     
+buildUI root stage = do
     stage.setTitle "FregeFX Cover Flow"
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
@@ -55,6 +55,7 @@ buildUI root stage = do
                        
     scene <- stage.getScene     
     readFileNames `thenDo` (onImagesLoaded scene pane)
+    
     return root         
     
 onImagesLoaded :: Scene -> Pane -> [String] -> JFX ()    
