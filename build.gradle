@@ -9,13 +9,13 @@ buildscript { // this should become a dependency of the frege-gradle-plugin in v
 }
 
 plugins { 
-  id "org.frege-lang" version "0.7" // version is optional, default is latest
+  id "org.frege-lang" version "0.8" // version is optional, default is latest
   id "application"
 }
 
 //mainClassName = 'MyApplication'
-//mainClassName = 'CoverFlow'
-mainClassName = 'Pong'
+mainClassName = 'CoverFlow'
+//mainClassName = 'Pong'
 
 def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
 if (! jdk8) {

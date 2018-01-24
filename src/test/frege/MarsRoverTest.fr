@@ -1,0 +1,19 @@
+module MarsRoverTest where
+
+import MarsRover
+
+import Test.QuickCheck
+
+derive Eq Orientation
+derive Eq Rover
+
+obsPosX   = once $ all (\obs -> fst obs > 0)    obstacles
+obsPosY   = once $ all (\obs -> snd obs > 0)    obstacles
+obsXinMax = once $ all (\obs -> fst obs < maxX) obstacles
+obsYinMax = once $ all (\obs -> snd obs < maxY) obstacles
+
+stepForward = once $  (R 1 0 S) == step For (R 0 0 S)
+
+hasHit = once $ hit (R 2 2 S)
+
+steps = once $ head (path [For, For, Lef, For] [startPos]) == R 2 1 E

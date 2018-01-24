@@ -1,0 +1,12 @@
+module BalancedParentheses where
+
+data Paren = Open | Close
+derive Eq Paren
+
+type Parens = [Paren]
+
+isBalanced :: Parens -> Bool
+isBalanced [] = true
+isBalanced (Open:Close:rest) = isBalanced rest
+isBalanced _  = false
+

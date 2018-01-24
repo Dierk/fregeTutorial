@@ -1,0 +1,45 @@
+module MarsRover where
+
+maxX = 10
+maxY = 10
+obstacles = [(2,2), (3,3), (4,4)]
+startPos  = R 0 0 S
+
+data Orientation = N | E | S | W
+
+data Rover = R Int Int Orientation
+
+data Cmd = For | Lef | Rig
+
+norm x max = if x < 0 then max else if x > max then 0 else x
+
+step :: Cmd -> Rover -> Rover
+step For (R x y S) = R (norm (x+1) maxX) y S
+step For (R x y N) = R (norm (x-1) maxX) y N
+step For (R x y E) = R x (norm (y+1) maxY) E
+step For (R x y W) = R x (norm (y-1) maxY) W
+
+step Lef (R x y N) = R x y W
+step Lef (R x y W) = R x y S
+step Lef (R x y S) = R x y E
+step Lef (R x y E) = R x y N
+
+step Rig (R x y N) = R x y E
+step Rig (R x y E) = R x y S
+step Rig (R x y S) = R x y W
+step Rig (R x y W) = R x y N
+
+hit :: Rover -> Bool
+hit (R x y o) = elem (x,y) obstacles
+
+path :: [Cmd] -> [Rover] -> [Rover]
+path (c:cs) (r:rs) = path cs ((step c r):r:rs)
+path [] r = r
+
+
+
+main:: IO ()
+main = do
+    println "Mars Rover"
+
+

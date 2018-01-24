@@ -1,0 +1,22 @@
+module BalancedParenthesesTest where
+
+import Test.QuickCheck
+import BalancedParentheses
+
+noParens :: Parens
+noParens = []
+
+-- test backlog:
+-- not equal length
+-- reminder: we ignore contains other text ftm
+-- )(
+-- ()() same is inside wrong...
+-- (())
+-- )()(
+
+singleOpen  = once $ false == isBalanced [Open]
+singleClose = once $ false == isBalanced [Close]
+
+ocProc0  = once $ isBalanced $ join $ replicate 0  [Open,Close]
+ocProc1  = once $ isBalanced $ join $ replicate 1  [Open,Close]
+ocProc20 = once $ isBalanced $ join $ replicate 20 [Open,Close]
