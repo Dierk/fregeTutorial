@@ -6,7 +6,6 @@ module SimpleCoverFlow where
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 
 import fregefx.JavaFxUtils
--- import Data.List(!!)
 
 import DemoUtils
          

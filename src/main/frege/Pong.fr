@@ -1,7 +1,7 @@
 
 --- Heart of the Pong game: the bouncing ball
 
-module Pong where 
+module Pong where  
 
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 

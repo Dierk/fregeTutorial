@@ -1,5 +1,35 @@
 --- the main app
 module MyApplication where
 	
---- the main function	
-main _ = println "Hello World"
+type Rule = Int -> [String] -> [String]
+
+divBy:: Int -> String -> Rule
+divBy divisor word n old = if n `rem` divisor > 0 
+                           then old
+                           else old ++ [word] 
+
+fizzRule:: Rule
+fizzRule = divBy 3 "fizz"
+
+buzzRule :: Rule
+buzzRule = divBy 5 "buzz" 
+
+numberRule :: Rule
+numberRule n [] = [show n]
+numberRule _ result = result
+
+fizzbuzz :: Rule
+fizzbuzz n = numberRule n . buzzRule n . fizzRule n
+
+toString :: Rule -> Int -> String
+toString rule n = joined "" (rule n [])
+
+transform :: Int -> String
+transform n = toString fizzbuzz n 
+
+main _ = for (map transform [1..100]) println
+
+
+
+
+

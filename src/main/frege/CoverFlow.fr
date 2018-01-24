@@ -45,7 +45,7 @@ buildUI root stage = do
     stage.setTitle "FregeFX Cover Flow"
     stage.setWidth  totalWidth
     stage.setHeight totalHeight    
-        
+  
     pane <- Pane.new () :: JFX Pane
     root <: do                
         pane `addNode` do
