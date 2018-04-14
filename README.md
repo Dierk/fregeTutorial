@@ -26,3 +26,8 @@ With the Gradle build in place, you can import the project into Ecplipse.
 - make sure you have the [FregeIDE](https://github.com/Frege/eclipse-plugin) plugin for Eclipse
 - just "import from Gradle", check "Enable Frege Builder" in the project settings, and you are done!
 
+## Requires
+
+- Java 8 for both compiling and running
+- Depends on FregeFX 0.8 and FregeFX 3.24.400+ for Java 8 with generics
+

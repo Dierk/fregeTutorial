@@ -17,32 +17,47 @@ plugins {
 mainClassName = 'CoverFlow'
 //mainClassName = 'Pong'
 
-def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
-if (! jdk8) {
-    println "You should be using Java 8 since we rely on JavaFX, but you run ${System.'java.version'} ."
-}
+//def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
+//if (! jdk8) {
+//    println "You should be using Java 8 since we rely on JavaFX, but you run ${System.'java.version'} ."
+//}
 ext {
-	javaTarget = 1.7
+	javaTarget = 1.8
+	fregeRelease = '3.24public'
+	fregeVersion = '3.24.400'
 }
 
 sourceCompatibility = 1.8
 targetCompatibility = javaTarget
 
+
+ant.mkdir(dir: "${rootProject.projectDir}/lib/org/frege-lang/frege/${fregeVersion}")
+ant.get(src: "https://github.com/Frege/frege/releases/download/${fregeRelease}/frege${fregeVersion}.jar",
+		dest: "${rootProject.projectDir}/lib/org/frege-lang/frege//${fregeVersion}/frege-${fregeVersion}.jar",
+		skipexisting: 'true')
+
+
 repositories {
     mavenLocal()
     jcenter()
-    maven { // for the snapshots -- only if you need the repl.
-	    url = "https://oss.sonatype.org/content/groups/public" 
+	maven { // for the snapshots -- only if you need the repl. or FregeFX
+		url = "https://oss.sonatype.org/content/groups/public"
+	}
+	maven {
+		url = "${rootProject.projectDir}/lib"
 	}
 }
 
 dependencies {
     // CHANGE NEXT LINE BELOW IF YOU WANT TO USE A DIFFERENT COMPILER
-    compile 'org.frege-lang:frege:3.24-7.30'
+    // compile 'org.frege-lang:frege:3.24-7.30' old
+
+	compile 'org.frege-lang:frege:3.24.400'
+
 //    compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
     //compile 'org.frege-lang:frege-native-gen:1.3' // only if you need native-gen
 
-    compile 'org.frege-lang:fregefx:0.3.2-SNAPSHOT' // only if you need FregeFX
+    compile 'org.frege-lang:fregefx:0.8' // only if you need FregeFX
 }
 
 compileFrege {
