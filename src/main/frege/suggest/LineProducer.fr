@@ -1,17 +1,26 @@
-module example.EachLine where
+module suggest.LineProducer where
 
--- only for testing
-data StringReader = native java.io.StringReader where
-    native new      :: String -> STMutable s StringReader
-    native close    :: Mutable s StringReader -> ST s ()
+{--
+    @LineProducer@ is a class for all types that support a common interface for in-place
+    line-by-line processing.
 
--- convenience output
-printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>= println
-    value <- ioValue
-    println $ prefix ++ show value
-
+    Notable examples are @BufferedReader@, @File@, @URL@, and @stdin@, while
+    some line producers are not even IO dependent like @StringReader@.
+-}
 class LineProducer lp where
+    {-- The _onLine_ function is called to process a line whenever a line is produced.
+
+        > onLine lineProducer startValue handler
+
+        where _handler_ is a function that takes an accumulator of the same type as the _startValue_ and
+        the newly produced line as a @String@. The _handler_ returns the accumulated value as the result of a
+        state transition (most often that is IO).
+
+        The _onLine_ function returns the total accumulated value as the result of a state transition.
+    -}
     onLine  :: Mutable s lp → a → (a → String → ST s a) → ST s a
+
+    --- The _offLine_ function stops further production of lines.
     offLine :: Mutable s lp → ST s ()
 
 instance LineProducer BufferedReader where
@@ -28,6 +37,9 @@ instance LineProducer BufferedReader where
     offLine :: Mutable s BufferedReader → ST s ()
     offLine bufferedReader = bufferedReader.close
 
+data StringReader = native java.io.StringReader where
+    native new      :: String -> STMutable s StringReader
+    native close    :: Mutable s StringReader -> ST s ()
 
 instance LineProducer StringReader where
     onLine  :: Mutable s StringReader → a → (a → String → ST s a) → ST s a
@@ -45,52 +57,54 @@ openReader fileName = do
     isr <- InputStreamReader.new fis "UTF-8"
     BufferedReader.new isr
 
-data XFile = native java.io.File where
-    native new           :: String -> STMutable s XFile
-    native getPath       :: Mutable s XFile -> ST s String
+data LpFile = native java.io.File where
+    native new           :: String -> STMutable s LpFile
+    native getPath       :: Mutable s LpFile -> ST s String
 
-makeMutable :: File -> STMutable s XFile
-makeMutable file = XFile.new file.getPath
+-- convenience function, not really needed
+makeMutable :: File -> STMutable s LpFile
+makeMutable file = LpFile.new file.getPath
 
-instance LineProducer XFile where
-    onLine  :: Mutable s XFile → a → (a → String → ST s a) → ST s a
+instance LineProducer LpFile where
+    onLine  :: Mutable s LpFile → a → (a → String → ST s a) → ST s a
     onLine  file value handler = do
         path <- file.getPath
         bufferedReader <- openReader path -- todo allow more encodings than UTF-8
         onLine bufferedReader value handler
-    offLine :: Mutable s XFile → ST s ()
+    offLine :: Mutable s LpFile → ST s ()
     offLine file = do
         throwST (EOFException.new "no more lines should be read")
         return ()
 
-data MalformedURLException = pure native java.net.MalformedURLException
+data MalformedURLException = pure native java.net.MalformedURLException  -- not needed after integration
 derive Exceptional MalformedURLException
 
-data XURL = native java.net.URL where
-    native new              :: String -> STMutable s XURL                throws MalformedURLException
-    native openStream       :: Mutable s XURL -> STMutable s InputStream throws IOException
+data LpURL = native java.net.URL where
+    native new              :: String -> STMutable s LpURL                throws MalformedURLException
+    native openStream       :: Mutable s LpURL -> STMutable s InputStream throws IOException
 
-instance LineProducer XURL where
-    onLine  :: Mutable s XURL → a → (a → String → ST s a) → ST s a
+instance LineProducer LpURL where
+    onLine  :: Mutable s LpURL → a → (a → String → ST s a) → ST s a
     onLine  xurl value handler = do
-        uis <- XURL.openStream xurl
+        uis <- LpURL.openStream xurl
         isr <- InputStreamReader.new uis "UTF-8"    -- todo: encoding depends on the protocol ...
         bufferedReader <- BufferedReader.new isr
         BufferedReader.onLine bufferedReader value handler
-    offLine :: Mutable s XURL → ST s ()
+    offLine :: Mutable s LpURL → ST s ()
     offLine url = do
         throwST (EOFException.new "no more lines should be read")
         return ()
 
-
+-- convenience output
+printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>= println
+    value <- ioValue
+    println $ prefix ++ show value
 
 main = do
     testFile = File.new "TestFile.txt"              -- since version 3.25, otherwise <- instead of =
-    xFile   <- makeMutable testFile
 
-    stack <- xFile.onLine [] $ \stack line -> return (line : stack)
-    println $ "read from xfile: " ++ show stack
-
+    println "----------------------------------------"
+    println "general file handling"
     -- delete test file if it already existed
     printIOValue "Test file deleted to clean up before start: " testFile.delete
 
@@ -106,18 +120,21 @@ main = do
     println "append 2 lines"
     appendFile testFile.getPath $ unlines ["fourth line","fifth line"]
 
-    println "processing each line, while keeping track of line numbers"
+    println "----------------------------------------"
+    println "processing each line with a buffered reader, while keeping track of line numbers"
     bufferedReader <- openReader testFile.getPath
     count <- bufferedReader.onLine 0 $ \num line -> do
         println $ show (num + 1) ++ ": " ++ line
         return  $ num + 1
     println $ "total number of lines: " ++ show count
 
-    println "pushing each line on a stack"
-    bufferedReader <- openReader testFile.getPath
-    stack <- bufferedReader.onLine [] $ \stack line -> return (line : stack)
+    println "----------------------------------------"
+    println "processing each line from a file, pushing each line on a stack"
+    mutFile <- makeMutable testFile
+    stack   <- mutFile.onLine [] $ \stack line -> return (line : stack)
     println $ "total stack" ++ show stack
 
+    println "----------------------------------------"
     println "reading only one line (a header for example)"
     oneLineReader <- openReader testFile.getPath
     header <- oneLineReader.onLine "" $ \state line -> do
@@ -125,22 +142,23 @@ main = do
         return line
     println $ "the header line is: " ++ show header
 
+    println "----------------------------------------"
     println "processing each line with a non-IO impure reader, here: StringReader. (great for testing)"
     stringReader <- StringReader.new $ unlines ["first","second","third"]
     result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
     println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
 
+    println "----------------------------------------"
     println "reading from a URL"
-    urlReader <- XURL.new "http://google.com"
+    urlReader <- LpURL.new "http://google.com"
     result <- urlReader.onLine 0 $ \num line -> do
         println $ show num ++ ": " ++ line
         if (num > 3) then urlReader.offLine else return ()
         return  $ num + 1
     println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
 
-
 cli = do
-    println "command line input (send EOF via Cmd/Ctrl-D)"
+    println "command line input (max 10 lines or send EOF via Cmd/Ctrl-D)"
     stdin.onLine 0 $ \num line -> do
         println $ show (num + 1) ++ ": " ++ line
         if (num > 9) then stdin.offLine else return ()
