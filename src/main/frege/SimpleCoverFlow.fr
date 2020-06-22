@@ -3,16 +3,17 @@
 
 module SimpleCoverFlow where 
 
+import frege.Prelude hiding(ListView)
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 
 import fregefx.JavaFxUtils
 
 import DemoUtils
          
-imageDirName = "/flickr/bigger/"    
+imageDirName = "/Users/Shared/flickr/bigger/"    
 urlPrefix    = "file:" ++ imageDirName                                   
-totalWidth  = 1024.0
-totalHeight = 768.0                     
+totalWidth   = 1024.0
+totalHeight  = 768.0                     
                                                                                                                                                                                                                                                                                                                                                                                        
 main args = do    
     FregeFX.launch $ withStage buildUI

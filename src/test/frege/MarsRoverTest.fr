@@ -17,3 +17,4 @@ stepForward = once $  (R 1 0 S) == step For (R 0 0 S)
 hasHit = once $ hit (R 2 2 S)
 
 steps = once $ head (path [For, For, Lef, For] [startPos]) == R 2 1 E
+

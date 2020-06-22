@@ -36,8 +36,6 @@ path :: [Cmd] -> [Rover] -> [Rover]
 path (c:cs) (r:rs) = path cs ((step c r):r:rs)
 path [] r = r
 
-
-
 main:: IO ()
 main = do
     println "Mars Rover"

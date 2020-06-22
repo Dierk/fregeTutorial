@@ -1,0 +1,12 @@
+module FizzBuzzClassic where
+
+numbers  = map show [1..]
+
+fizzes   = cycle ["", "",  "fizz"]
+buzzes   = cycle ["", "","", "",  "buzz"]
+
+pattern  = zipWith (++) fizzes buzzes
+fizzbuzz = zipWith (\pat num -> if pat=="" then num else pat) pattern numbers
+
+main = do
+    println $ take 20 pattern  

@@ -1,0 +1,119 @@
+module example.EachLine where
+
+-- only for testing
+data StringReader = native java.io.StringReader where
+    native new      :: String -> STMutable s StringReader
+    native close    :: Mutable s StringReader -> ST s ()
+
+-- convenience output
+printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>= println
+    value <- ioValue
+    println $ prefix ++ show value
+
+class LineProducer lp where
+    onLine  :: Mutable s lp → a → (a → String → ST s a) → ST s a
+    offLine :: Mutable s lp → ST s ()
+
+instance LineProducer BufferedReader where
+    onLine :: Mutable s BufferedReader → a → (a → String → ST s a) → ST s a
+    onLine bufferedReader value handler = do
+        line <- bufferedReader.readLine `catch` (\(e :: IOException) -> return Nothing)
+        case line of
+            Nothing   -> do
+                offLine bufferedReader
+                return value
+            Just line -> do
+                newValue <- handler value line
+                onLine bufferedReader newValue handler
+    offLine :: Mutable s BufferedReader → ST s ()
+    offLine bufferedReader = bufferedReader.close
+
+
+instance LineProducer StringReader where
+    onLine  :: Mutable s StringReader → a → (a → String → ST s a) → ST s a
+    onLine  stringReader value handler = (BufferedReader.new stringReader) >>= \br -> onLine br value handler
+    offLine :: Mutable s StringReader → ST s ()
+    offLine stringReader = stringReader.close
+
+data FileInputStream = native java.io.FileInputStream where
+    native new :: String  -> STMutable s FileInputStream
+                    throws FileNotFoundException
+
+openReader :: String -> STMutable s BufferedReader
+openReader fileName = do
+    fis <- FileInputStream.new (fileName :: String )
+    isr <- InputStreamReader.new fis "UTF-8"
+    BufferedReader.new isr
+
+data XFile = native java.io.File where
+    native new           :: String -> STMutable s XFile
+    native getPath       :: Mutable s XFile -> ST s String
+
+makeMutable :: File -> STMutable s XFile
+makeMutable file = XFile.new file.getPath
+
+instance LineProducer XFile where
+    onLine  :: Mutable s XFile → a → (a → String → ST s a) → ST s a
+    onLine  file value handler = do
+        path <- file.getPath
+        bufferedReader <- openReader path -- todo allow more encodings than UTF-8
+        onLine bufferedReader value handler
+    offLine :: Mutable s XFile → ST s ()
+    offLine file = do
+        throwST (EOFException.new "no more lines should be read")
+        return ()
+
+main = do
+    testFile = File.new "TestFile.txt"              -- since version 3.25, otherwise <- instead of =
+    xFile   <- makeMutable testFile
+
+    stack <- xFile.onLine [] $ \stack line -> return (line : stack)
+    println $ "read from xfile: " ++ show stack
+
+    -- delete test file if it already existed
+    printIOValue "Test file deleted to clean up before start: " testFile.delete
+
+    println "create test file"
+    writeFile testFile.getPath $ unlines ["first line","second line","third line"]
+    printIOValue "File now exists: " testFile.exists
+
+    println "read test file in toto"
+    content <- readFile testFile.getPath
+    println "file content was:"
+    println content
+
+    println "append 2 lines"
+    appendFile testFile.getPath $ unlines ["fourth line","fifth line"]
+
+    println "processing each line, while keeping track of line numbers"
+    bufferedReader <- openReader testFile.getPath
+    count <- bufferedReader.onLine 0 $ \num line -> do
+        println $ show (num + 1) ++ ": " ++ line
+        return  $ num + 1
+    println $ "total number of lines: " ++ show count
+
+    println "pushing each line on a stack"
+    bufferedReader <- openReader testFile.getPath
+    stack <- bufferedReader.onLine [] $ \stack line -> return (line : stack)
+    println $ "total stack" ++ show stack
+
+    println "reading only one line (a header for example)"
+    oneLineReader <- openReader testFile.getPath
+    header <- oneLineReader.onLine "" $ \state line -> do
+        offLine oneLineReader -- make sure the next read yields no more lines
+        return line
+    println $ "the header line is: " ++ show header
+
+    println "processing each line with a non-IO impure reader, here: StringReader. (great for testing)"
+    stringReader <- StringReader.new $ unlines ["first","second","third"]
+    result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
+    println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
+
+
+cli = do
+    println "command line input (send EOF via Cmd/Ctrl-D)"
+    stdin.onLine 0 $ \num line -> do
+        println $ show (num + 1) ++ ": " ++ line
+        if (num > 9) then stdin.offLine else return ()
+        return  $ num + 1
+    return ()

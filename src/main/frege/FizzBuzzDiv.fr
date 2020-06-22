@@ -1,5 +1,5 @@
---- the main app
-module MyApplication where
+--- the FizzBuzzDiv app
+module FizzBuzzDiv where
 	
 type Rule = Int -> [String] -> [String]
 
