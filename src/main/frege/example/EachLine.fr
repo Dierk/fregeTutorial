@@ -36,10 +36,10 @@ instance LineProducer StringReader where
     offLine stringReader = stringReader.close
 
 data FileInputStream = native java.io.FileInputStream where
-    native new :: String  -> STMutable s FileInputStream
+    native new :: String  -> STMutable s FileInputStream        -- todo: needs to be changed in frege
                     throws FileNotFoundException
 
-openReader :: String -> STMutable s BufferedReader
+openReader :: String -> STMutable s BufferedReader              -- todo: needs to be changed in frege
 openReader fileName = do
     fis <- FileInputStream.new (fileName :: String )
     isr <- InputStreamReader.new fis "UTF-8"
@@ -62,6 +62,27 @@ instance LineProducer XFile where
     offLine file = do
         throwST (EOFException.new "no more lines should be read")
         return ()
+
+data MalformedURLException = pure native java.net.MalformedURLException
+derive Exceptional MalformedURLException
+
+data XURL = native java.net.URL where
+    native new              :: String -> STMutable s XURL                throws MalformedURLException
+    native openStream       :: Mutable s XURL -> STMutable s InputStream throws IOException
+
+instance LineProducer XURL where
+    onLine  :: Mutable s XURL → a → (a → String → ST s a) → ST s a
+    onLine  xurl value handler = do
+        uis <- XURL.openStream xurl
+        isr <- InputStreamReader.new uis "UTF-8"    -- todo: encoding depends on the protocol ...
+        bufferedReader <- BufferedReader.new isr
+        BufferedReader.onLine bufferedReader value handler
+    offLine :: Mutable s XURL → ST s ()
+    offLine url = do
+        throwST (EOFException.new "no more lines should be read")
+        return ()
+
+
 
 main = do
     testFile = File.new "TestFile.txt"              -- since version 3.25, otherwise <- instead of =
@@ -107,6 +128,14 @@ main = do
     println "processing each line with a non-IO impure reader, here: StringReader. (great for testing)"
     stringReader <- StringReader.new $ unlines ["first","second","third"]
     result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
+    println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
+
+    println "reading from a URL"
+    urlReader <- XURL.new "http://google.com"
+    result <- urlReader.onLine 0 $ \num line -> do
+        println $ show num ++ ": " ++ line
+        if (num > 3) then urlReader.offLine else return ()
+        return  $ num + 1
     println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
 
 
