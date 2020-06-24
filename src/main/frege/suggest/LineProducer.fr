@@ -26,7 +26,9 @@ class LineProducer lp where
 instance LineProducer BufferedReader where
     onLine :: Mutable s BufferedReader → a → (a → String → ST s a) → ST s a
     onLine bufferedReader value handler = do
-        line <- bufferedReader.readLine `catch` (\(e :: IOException) -> return Nothing)
+        line <- bufferedReader.readLine
+            `catch` (\(e :: EOFException) -> return Nothing)
+            `catch` (\(e :: IOException)  -> return Nothing)
         case line of
             Nothing   -> do
                 offLine bufferedReader

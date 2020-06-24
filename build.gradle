@@ -1,16 +1,7 @@
-buildscript { // this should become a dependency of the frege-gradle-plugin in version 0.8
-	repositories {
-	    mavenLocal()
-	    mavenCentral()
-	}
-	dependencies {
-		classpath 'commons-io:commons-io:2.4' // for fregeDoc
-	}
-}
 
-plugins { 
-  id "org.frege-lang" version "0.8" // version is optional, default is latest
-  id "application"
+
+plugins {
+  id "application" // implies java
 }
 
 // set from command line like  -DmainClassName='MyApplication'
@@ -19,59 +10,49 @@ mainClassName = System.getProperty('mainClassName')
 //mainClassName = 'CoverFlow'
 //mainClassName = 'Pong'
 
-//def jdk8 = System.getProperty('java.version')[0..2].toDouble() == 1.8
-//if (! jdk8) {
-//    println "You should be using Java 8 since we rely on JavaFX, but you run ${System.'java.version'} ."
-//}
 ext {
-	javaTarget = 1.8
-	fregeRelease =  '3.25alpha' //'3.24public'
+	javaTarget   = 1.8
+	fregeRelease = '3.25alpha'
 	fregeVersion = '3.25.84'
+	fregeDir     = "${rootProject.projectDir}/lib/org/frege-lang/frege/${fregeVersion}"
+	fregeJar     = "${fregeDir}/frege-${fregeVersion}.jar"
 }
 
 sourceCompatibility = 1.8
 targetCompatibility = javaTarget
 
-
-ant.mkdir(dir: "${rootProject.projectDir}/lib/org/frege-lang/frege/${fregeVersion}")
+// fetch frege distro from github releases and store locally
+ant.mkdir(dir: fregeDir)
 ant.get(src: "https://github.com/Frege/frege/releases/download/${fregeRelease}/frege${fregeVersion}.jar",
-		dest: "${rootProject.projectDir}/lib/org/frege-lang/frege/${fregeVersion}/frege-${fregeVersion}.jar",
+		dest: fregeJar,
 		skipexisting: 'true')
 
 
 repositories {
+	flatDir {
+         dirs fregeDir
+    }
     mavenLocal()
     jcenter()
 	maven { // for the snapshots -- only if you need the repl. or FregeFX
 		url = "https://oss.sonatype.org/content/groups/public"
 	}
-	maven {
-		url = "${rootProject.projectDir}/lib"
-	}
 }
 
 dependencies {
     // CHANGE NEXT LINE BELOW IF YOU WANT TO USE A DIFFERENT COMPILER
-	compile 'org.frege-lang:frege:3.25.84'
+	implementation 'org.frege-lang:frege:3.25.84'
 
-//    compile 'org.frege-lang:frege-repl-core:1.4-SNAPSHOT'  // only if you need the repl
-    //compile 'org.frege-lang:frege-native-gen:1.3' // only if you need native-gen
-
-    compile 'org.frege-lang:fregefx:0.8' // only if you need FregeFX
+    //implementation 'org.frege-lang:frege-native-gen:1.3' 	// only if you need native-gen
+    implementation 'org.frege-lang:fregefx:0.8', { 			// only if you need FregeFX (and a Java 8 with JavaFX)
+		exclude module: 'frege'								// fregefx comes with a frege dependency but we
+	}														//   we prefer to use our own version
 }
 
-compileFrege {
-	target = javaTarget
-}
-compileTestFrege {
-	target = javaTarget
-}
-
-
-fregeDoc {
-	verbose = true
-	module  = "$buildDir/classes/main" // should become default
-}
+//fregeDoc {
+//	verbose = true
+//	module  = "$buildDir/classes/main" // should become default
+//}
 
 //fregeQuickCheck {
 //    help = true          // default: false
@@ -87,4 +68,66 @@ fregeDoc {
 //    allJvmArgs = ['-Xss4M']
 //}
 
+
+
+task fregeCompile(type: JavaExec) {      	// https://docs.gradle.org/6.5/dsl/org.gradle.api.tasks.JavaExec.html
+    group       = "frege"
+    description = "Compile the -Pfrege_file=."
+    classpath   = files fregeJar
+	args([
+//		"-help",
+//		"-version",
+//		"-Dfrege.javac=javac -J-Xmx512m", 	//   java compiler and options, default internal
+		"-d", 								//  target directory for *.java and *.class files
+			"${sourceSets.main.java.outputDir}",
+		"-fp", 								//  frege path: where to find imported frege packages
+			"${sourceSets.main.compileClasspath.asPath}" ,
+		"-enc", "UTF-8", 					//  charset for source code files, standard is UTF-8
+//		"-enc DEFAULT", 					//  platform default charset for source code files
+		"-target", "1.8",	 				//  generate code for java version n.m, also passed to javac
+//		"-nocp", 							//  exclude java classpath from -fp
+		"-hints", 							//  print more detailed error messages and warnings
+//		"-inline", 							//  inline functions where possible
+//		"-strict-pats", 					//  check patterns in multi-argument functions strictly from left to right
+		"-comments", 						//  generate commented code
+//		"-explain", "i[-j]" 				//  print some debugging output from type checker
+						  					//  regarding line(s) i (to j). May help to understand
+		                  					//  inexplicable type errors better.
+//		"-nowarn", 							//  don't print warnings (not recommended)
+//		"-v", 								//  verbose mode on
+		"-make", 							//  build outdated or missing imports
+		"-sp",		 						//  look for source files in srcpath, default is .
+			"${projectDir}/src/main/frege",
+//		"-j", 								//  do not run the java compiler
+		"-ascii", 							//  do not use →, ⇒, ∀ and ∷ when presenting types,
+		                  					//  and use ascii characters for java generics variables
+//		"-greek", 							//  make greek type variables
+//		"-fraktur", 						//  make 𝖋𝖗𝖆𝖐𝖙𝖚𝖗 type variables
+		"-latin", 							//  make latin type variables
+        project.hasProperty("frege_file") ? project.frege_file : "." //  set the file-to-compile via a -P option, if not given use "."
+	])
+	// println commandLine // for debugging the build
+}
+
+// you might want to start the repl as
+//   gradlew --console=plain --no-daemon fregeRepl
+// to see less confusing "build progress" output and have proper arrow key support
+
+task fregeRepl(type: JavaExec) {
+	// dependsOn     fregeCompile  // in case we always want to compile before
+    group         = "frege"
+    description   = "Start the Frege REPL on the project classpath"
+	standardInput = System.in 								// this should run interactively, so we need stdin
+    classpath     = files sourceSets.main.java.outputDir, fregeJar
+    main          = "frege.repl.FregeRepl"
+}
+
+task fregeRun(type: JavaExec) {
+	dependsOn     fregeCompile  // in case we always want to compile before running
+    group         = "frege"
+    description   = "Run -Pclass_name=Main"
+	standardInput = System.in 								// this might run interactively, so we need stdin
+    classpath     = files sourceSets.main.runtimeClasspath.asPath
+    main          = project.hasProperty("class_name") ? project.class_name : "Main"
+}
 
