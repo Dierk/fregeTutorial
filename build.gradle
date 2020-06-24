@@ -172,3 +172,37 @@ task fregeTest(type: JavaExec) {
 	])
 }
 
+task prepareDocDir {
+	ant.mkdir(dir: "${project.rootDir}/docs/fregedoc")
+}
+
+List<String> fregeSourceModuleNames() {
+	List result = []
+	String baseDir = "${project.rootDir}/src/main/frege/"
+	new File(baseDir).eachFileRecurse(groovy.io.FileType.FILES) { file ->
+		if (! file.name.endsWith(".fr") ) return
+		String moduleName = (file.absolutePath - baseDir - ".fr").replaceAll("/",".")
+		result << moduleName
+	}
+	return result
+}
+
+task fregeDoc(type: JavaExec) {
+	dependsOn     fregeCompile, prepareDocDir
+    group         = "frege"
+    description   = "Generate the docs for all runtime classes"
+    classpath     = files sourceSets.main.runtimeClasspath.asPath, fregeJar
+    main          = "frege.tools.Doc"
+	args([
+		"-v", 								//  print a message for each processed module
+		"-d", 								//  specify root directory for documentation
+			"${project.rootDir}/docs/fregedoc",
+//		"-cp", 								//  (additional) class path where modules can be found
+//			sourceSets.test.runtimeClasspath.asPath,
+//		"-x", 								//  exclude modules whose name starts with 'mod1' or 'mod2'
+//			"mod1,mod2",
+//		sourceSets.main.java.outputDir      //  see https://github.com/Frege/frege/issues/392
+		fregeSourceModuleNames()            //  temporary replacement
+	].flatten())
+}
+
