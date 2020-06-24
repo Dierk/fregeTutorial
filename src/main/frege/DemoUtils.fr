@@ -3,13 +3,9 @@
 -}
 module DemoUtils where
 
-import fregefx.JavaFxType 
-import fregefx.JavaFxAll
-import fregefx.JavaFxUtils
-
 filenamesInDir :: String -> IO [String]
 filenamesInDir rootDirName  = do        
-    dir <- File.new rootDirName 
+    dir = File.new rootDirName -- updated to latest frege version 3.25
     mayList <- dir.list
     case mayList of 
         Nothing -> return []
@@ -19,3 +15,4 @@ filenamesInDir rootDirName  = do
                 let unwrap i = return . unJust =<< array.getAt i
                 in  map unwrap [0..length-1]            
             sequence ioFilenameList                      
+
