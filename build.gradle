@@ -20,6 +20,10 @@ ant.get(src: "https://github.com/Frege/frege/releases/download/${fregeRelease}/f
 		dest: fregeJar,
 		skipexisting: 'true')
 
+// prepare all the directories that the frege tasks rely upon
+ant.mkdir(dir: sourceSets.main.java.outputDir)
+ant.mkdir(dir: sourceSets.test.java.outputDir)
+ant.mkdir(dir: "${project.buildDir}/resources/main") // needed to compile the tests (?)
 
 repositories {
 	flatDir {
@@ -27,7 +31,7 @@ repositories {
     }
     mavenLocal()
     jcenter()
-	maven { // for the snapshots -- only if you need the repl. or FregeFX
+	maven { // for the snapshots -- only if you need FregeFX
 		url = "https://oss.sonatype.org/content/groups/public"
 	}
 }
@@ -35,7 +39,7 @@ repositories {
 // we manage dependencies as if it was a Java project
 dependencies {
     // CHANGE NEXT LINE BELOW IF YOU WANT TO USE A DIFFERENT COMPILER
-	implementation 'org.frege-lang:frege:3.25.84'
+	implementation "org.frege-lang:frege:${fregeVersion}"
 
     //implementation 'org.frege-lang:frege-native-gen:1.3' 	// only if you need native-gen
     implementation 'org.frege-lang:fregefx:0.8', { 			// only if you need FregeFX (and a Java 8 with JavaFX 8)
@@ -73,12 +77,12 @@ task fregeCompile(type: JavaExec) {      	// https://docs.gradle.org/6.5/dsl/org
 //		"-version",
 //		"-Dfrege.javac=javac -J-Xmx512m", 	//   java compiler and options, default internal
 		"-d", 								//  target directory for *.java and *.class files
-			"${sourceSets.main.java.outputDir}",
+			sourceSets.main.java.outputDir,
 		"-fp", 								//  frege path: where to find imported frege packages
-			"${sourceSets.main.compileClasspath.asPath}" ,
+			sourceSets.main.compileClasspath.asPath,
 		"-enc", "UTF-8", 					//  charset for source code files, standard is UTF-8
 //		"-enc DEFAULT", 					//  platform default charset for source code files
-		"-target", "1.8",	 				//  generate code for java version n.m, also passed to javac
+		"-target", javaTarget,	 			//  generate code for java version n.m, also passed to javac
 //		"-nocp", 							//  exclude java classpath from -fp
 		"-hints", 							//  print more detailed error messages and warnings
 //		"-inline", 							//  inline functions where possible
@@ -124,4 +128,27 @@ task fregeRun(type: JavaExec) {
     classpath     = files sourceSets.main.runtimeClasspath.asPath
     main          = project.hasProperty("class_name") ? project.class_name : "Main"
 }
+
+task fregeTestCompile(type: JavaExec) {
+	dependsOn   fregeCompile
+    group       = "frege"
+    description = "Compile all Frege test files"
+    classpath   = files fregeJar
+	args([
+		"-d", 								//  target directory for *.java and *.class files
+			sourceSets.test.java.outputDir,
+		"-fp", 								//  frege path: where to find imported frege packages
+			sourceSets.test.compileClasspath.asPath,
+		"-target", javaTarget,	 			//  generate code for java version n.m, also passed to javac
+		"-hints", 							//  print more detailed error messages and warnings
+		"-comments", 						//  generate commented code
+		"-make", 							//  build outdated or missing imports
+		"-sp",		 						//  look for source files in srcpath, default is .
+			"${projectDir}/src/test/frege",
+		"-ascii", 							//  do not use →, ⇒, ∀ and ∷ when presenting types,
+		"-latin", 							//  make latin type variables
+        "." 								//  compile all tests
+	])
+}
+
 
