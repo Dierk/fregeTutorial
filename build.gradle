@@ -102,7 +102,7 @@ task fregeCompile(type: JavaExec) {      	// https://docs.gradle.org/6.5/dsl/org
 //		"-greek", 							//  make greek type variables
 //		"-fraktur", 						//  make 𝖋𝖗𝖆𝖐𝖙𝖚𝖗 type variables
 		"-latin", 							//  make latin type variables
-        project.hasProperty("frege_file") ? project.frege_file : "." //  set the file-to-compile via a -P option, if not given use "."
+        project.hasProperty("frege_file") ? project.frege_file : "${projectDir}/src/main/frege" //  set the file-to-compile via a -P option, if not given use "."
 	])
 	// println commandLine // for debugging the build
 }
@@ -147,8 +147,28 @@ task fregeTestCompile(type: JavaExec) {
 			"${projectDir}/src/test/frege",
 		"-ascii", 							//  do not use →, ⇒, ∀ and ∷ when presenting types,
 		"-latin", 							//  make latin type variables
-        "." 								//  compile all tests
+		"${projectDir}/src/test/frege" 		//  compile all tests
 	])
 }
 
+task fregeTest(type: JavaExec) {
+	dependsOn     fregeTestCompile  // in case we always want to compile before running
+    group         = "frege"
+    description   = "Test -Pclass_name=MainTest or all in test dir"
+    classpath     = files sourceSets.test.runtimeClasspath.asPath
+    main          = "frege.tools.Quick"
+	args([
+		"-v", 								//  verbose checks
+//		"-vv", 								//  most detailed output, use for a single check
+//		"-n", 								//  each check will be running num times, default 100
+//			"100",
+//		"-p", 								//  only check the named predicates
+//			"pred1,pred2",
+//		"-x", 								//  do not check the predicates listed
+//			"pred1,pred2",
+//		"-l", 	 							//  list predicates available, do not check them
+											//  module (i.e. class) name or all tests in dir
+		project.hasProperty("class_name") ? project.class_name : sourceSets.test.java.outputDir
+	])
+}
 
