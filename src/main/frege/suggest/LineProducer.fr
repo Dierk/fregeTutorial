@@ -27,8 +27,7 @@ instance LineProducer BufferedReader where
     onLine :: Mutable s BufferedReader → a → (a → String → ST s a) → ST s a
     onLine bufferedReader value handler = do
         line <- bufferedReader.readLine
-            `catch` (\(e :: EOFException) -> return Nothing)
-            `catch` (\(e :: IOException)  -> return Nothing)
+            `catch` \(e :: IOException)  -> return Nothing
         case line of
             Nothing   -> do
                 offLine bufferedReader
@@ -67,16 +66,27 @@ data LpFile = native java.io.File where
 makeMutable :: File -> STMutable s LpFile
 makeMutable file = LpFile.new file.getPath
 
+{- Convenience functions for line producers that delegate to a buffered reader and
+   signal the end of processing via throwing EOF, which we catch and properly
+   close the reader.
+-}
+private relayWithCatch bufferedReader value handler =
+    onLine bufferedReader value $ \currentState line -> do
+        handler currentState line `catch` \(e :: EOFException) -> do
+            offLine bufferedReader
+            return currentState
+private relayOffLine _ = do
+    throwST (EOFException.new "end of lines")
+    return ()
+
 instance LineProducer LpFile where
     onLine  :: Mutable s LpFile → a → (a → String → ST s a) → ST s a
     onLine  file value handler = do
         path <- file.getPath
         bufferedReader <- openReader path -- todo allow more encodings than UTF-8
-        onLine bufferedReader value handler
+        relayWithCatch bufferedReader value handler
     offLine :: Mutable s LpFile → ST s ()
-    offLine file = do
-        throwST (EOFException.new "no more lines should be read")
-        return ()
+    offLine = relayOffLine
 
 data MalformedURLException = pure native java.net.MalformedURLException  -- not needed after integration
 derive Exceptional MalformedURLException
@@ -91,11 +101,9 @@ instance LineProducer LpURL where
         uis <- LpURL.openStream xurl
         isr <- InputStreamReader.new uis "UTF-8"    -- todo: encoding depends on the protocol ...
         bufferedReader <- BufferedReader.new isr
-        BufferedReader.onLine bufferedReader value handler
+        relayWithCatch bufferedReader value handler
     offLine :: Mutable s LpURL → ST s ()
-    offLine url = do
-        throwST (EOFException.new "no more lines should be read")
-        return ()
+    offLine = relayOffLine
 
 -- convenience output
 printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>= println
@@ -154,10 +162,10 @@ main = do
     println "reading from a URL"
     urlReader <- LpURL.new "http://google.com"
     result <- urlReader.onLine 0 $ \num line -> do
-        println $ show num ++ ": " ++ line
+        println $ show num ++ ": " ++ line.substr 0 10
         if (num > 3) then urlReader.offLine else return ()
         return  $ num + 1
-    println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
+    println $ "processing strings with onLine works as expected: " ++ show (result == 4)
 
 cli = do
     println "command line input (max 10 lines or send EOF via Cmd/Ctrl-D)"
