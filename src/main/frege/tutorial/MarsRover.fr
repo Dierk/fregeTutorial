@@ -1,4 +1,4 @@
-module MarsRover where
+module tutorial.MarsRover where
 
 maxX = 10
 maxY = 10

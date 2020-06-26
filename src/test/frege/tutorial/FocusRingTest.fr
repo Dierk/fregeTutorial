@@ -1,6 +1,6 @@
-module FocusRingTest where
+module tutorial.FocusRingTest where
 
-import FocusRing
+import tutorial.FocusRing
 import Test.QuickCheck
 derive Eq (FocusRing a)
 

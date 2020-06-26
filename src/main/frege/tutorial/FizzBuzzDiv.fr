@@ -1,5 +1,5 @@
 --- the FizzBuzzDiv app
-module FizzBuzzDiv where
+module tutorial.FizzBuzzDiv where
 	
 type Rule = Int -> [String] -> [String]
 

@@ -1,14 +1,14 @@
 
 --- A simple picture viewer that can be extended into CoverFlow.fr
 
-module SimpleCoverFlow where 
+module tutorial.SimpleCoverFlow where
 
 import frege.Prelude hiding(ListView)
 import fregefx.JavaFxType
 import fregefx.JavaFxAll 
 import fregefx.JavaFxUtils
 
-import DemoUtils
+import tutorial.DemoUtils
          
 imageDirName = "/Users/Shared/flickr/bigger/"    
 urlPrefix    = "file:" ++ imageDirName                                   

@@ -1,4 +1,4 @@
-module BalancedParentheses where
+module tutorial.BalancedParentheses where
 
 data Paren = Open | Close
 derive Eq Paren

@@ -1,4 +1,4 @@
-module FizzBuzzClassic where
+module tutorial.FizzBuzzClassic where
 
 numbers  = map show [1..]
 

@@ -1,7 +1,7 @@
 {-- Utilities to be used in the tutorial demos.
     Most of them should later go into their respective libraries.    
 -}
-module DemoUtils where
+module tutorial.DemoUtils where
 
 filenamesInDir :: String -> IO [String]
 filenamesInDir rootDirName  = do        

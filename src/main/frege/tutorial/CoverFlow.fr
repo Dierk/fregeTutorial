@@ -1,14 +1,14 @@
 
 --- A simpler version for easier understanding is in SimpleCoverFlow.fr
 
-module CoverFlow where
+module tutorial.CoverFlow where
 
 import fregefx.JavaFxType 
 import fregefx.JavaFxAll hiding (ListView)
 import fregefx.JavaFxUtils
 
-import DemoUtils
-import FocusRing                                  
+import tutorial.DemoUtils
+import tutorial.FocusRing
                  
 imageDirName = "/Users/Shared/flickr/bigger/"    
 urlPrefix    = "file:" ++ imageDirName                       

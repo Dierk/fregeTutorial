@@ -2,7 +2,7 @@
 --- we have at least one test and the build does not fail 
 --- because of missing tests.
 
-module DummyTest where
+module tutorial.DummyTest where
 
 import Test.QuickCheck	
 	

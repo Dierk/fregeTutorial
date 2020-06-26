@@ -1,6 +1,6 @@
-module MarsRoverTest where
+module tutorial.MarsRoverTest where
 
-import MarsRover
+import tutorial.MarsRover
 
 import Test.QuickCheck
 

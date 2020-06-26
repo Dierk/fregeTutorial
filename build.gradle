@@ -2,6 +2,7 @@
 plugins {
   id "application" // implies java
 }
+mainClassName = "CoverFlow"
 
 ext {
 	javaTarget   = 1.8
@@ -26,7 +27,6 @@ ant.get(src: "https://github.com/Frege/frege/releases/download/${fregeRelease}/f
 // prepare all the directories that the frege tasks rely upon
 ant.mkdir(dir: sourceSets.main.java.outputDir)
 ant.mkdir(dir: sourceSets.test.java.outputDir)
-ant.mkdir(dir: "${project.buildDir}/resources/main") // needed to compile the tests (?)
 
 repositories {
 	flatDir {
@@ -49,7 +49,6 @@ dependencies {
 		exclude module: 'frege'								// fregefx comes with a frege dependency but we
 	}														//   we prefer to use our own version
 }
-
 
 task fregeCompile(type: JavaExec) {      	// https://docs.gradle.org/6.5/dsl/org.gradle.api.tasks.JavaExec.html
     group       = "frege"
@@ -107,23 +106,32 @@ fregeCompile.doLast {
 task fregeRepl(type: JavaExec) {
 	// dependsOn     fregeCompile  // in case we always want to compile before
     group         = "frege"
-    description   = "Start the Frege REPL on the project classpath"
+    description   = "Frege REPL start via: gradlew --console=plain --no-daemon fregeRepl"
 	standardInput = System.in 								// this should run interactively, so we need stdin
     classpath     = files sourceSets.main.java.outputDir, fregeJar // start with all compiled project classes
     main          = "frege.repl.FregeRepl"
+}
+fregeRepl.doFirst {
+	ant.echo "Consider starting via: gradlew --console=plain --no-daemon fregeRepl"
 }
 
 task fregeRun(type: JavaExec) {
 	dependsOn     fregeCompile  // in case we always want to compile before running
     group         = "frege"
-    description   = "Run -Pclass_name=Main"
+    description   = "Run -Pclass_name=${project.mainClassName}"
 	standardInput = System.in 								// this might run interactively, so we need stdin
     classpath     = files sourceSets.main.runtimeClasspath.asPath
-    main          = project.hasProperty("class_name") ? project.class_name : "Main"
+    main          = project.hasProperty("class_name") ? project.class_name : project.mainClassName
+}
+
+
+task prepareFregeTestDir {
+	// some task seems to delete this dir, we have to re-create it since fTC needs it (why ?)
+    ant.mkdir(dir: "${buildDir}/resources/main")
 }
 
 task fregeTestCompile(type: JavaExec) {
-	dependsOn   fregeCompile
+	dependsOn   fregeCompile, prepareFregeTestDir
     group       = "frege"
     description = "Compile all Frege test files"
     classpath   = files fregeJar
@@ -142,7 +150,7 @@ task fregeTestCompile(type: JavaExec) {
 		fregeTestSourceDir 					//  compile all tests
 	])
 }
-fregeCompile.doLast {
+fregeTestCompile.doLast {
 	ant.move(toDir: "${projectDir}/src/test/java") {
 		fileSet(dir: sourceSets.test.java.outputDir) {
 			include name:"**/*.java"
@@ -171,19 +179,9 @@ task fregeTest(type: JavaExec) {
 	])
 }
 
-task cleanFregeDoc {
-	ant.delete(dir: fregeDocDir)
-}
-
-// the standard clean task should also clean the generated frege docs
-clean.dependsOn cleanFregeDoc
-
 task prepareDocDir {
 	ant.mkdir(dir: fregeDocDir)
 }
-
-// the standard java jar task must first create the frege classes
-jar.dependsOn fregeCompile
 
 task fregeDoc(type: JavaExec) {
 	dependsOn     prepareDocDir, jar
@@ -204,4 +202,14 @@ task fregeDoc(type: JavaExec) {
 	])
 }
 
+task cleanFregeDoc {
+	ant.delete(dir: fregeDocDir)
+}
+
+// the standard clean task should also clean the generated frege docs
+clean.dependsOn cleanFregeDoc
+// the standard java jar task must first create the frege classes
+compileJava.dependsOn fregeCompile
+compileTestJava.dependsOn fregeTestCompile
+test.dependsOn fregeTest
 

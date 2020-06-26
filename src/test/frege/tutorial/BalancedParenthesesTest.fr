@@ -1,7 +1,7 @@
-module BalancedParenthesesTest where
+module tutorial.BalancedParenthesesTest where
 
 import Test.QuickCheck
-import BalancedParentheses
+import tutorial.BalancedParentheses
 
 noParens :: Parens
 noParens = []

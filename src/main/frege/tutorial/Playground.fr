@@ -1,0 +1,7 @@
+module tutorial.Playground where
+
+
+twice f x = f (f x)
+
+main = do
+    println $ twice (+1) 0

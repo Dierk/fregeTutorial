@@ -3,7 +3,7 @@
 --- Inspired by the XMonad window manager and SPJ "A Taste of Haskell, OSCON 2007" 
 --- https://www.youtube.com/watch?v=jLj1QV11o9g 
 
-module FocusRing where
+module tutorial.FocusRing where
 
 data FocusRing a = FocusRing {
     --- all values left of the focus in reverse order
