@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Gradle: org.frege-lang:frege:3.25.84">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/org/frege-lang/frege/3.25.84/frege-3.25.84.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
