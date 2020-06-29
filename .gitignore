@@ -7,3 +7,5 @@ target
 bin
 .gradle/*/taskArtifacts/
 /.gradle/
+/lib/
+/TestFile.txt
