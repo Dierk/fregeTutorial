@@ -116,24 +116,26 @@ countStringReaderLines = do
     result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
     return result
 
-type StringGenerator = Ref (Bool, String)
---    new str = Ref.new (true, str)
-
-nextString str = str ++ "x"
+data StrGenData = StrGen {
+    proceed     :: Bool,                -- if false we stop generating lines
+    line        :: String,              -- the currently generated line, "onLine" will be called with this
+    nextLine    :: String -> String     -- the generation function for the next line
+}
+type StringGenerator = Ref StrGenData   -- a mutable reference to the generator data
 
 instance LineProducer StringGenerator where
     onLine  :: Mutable s StringGenerator → a → (a → String → ST s a) → ST s a
     onLine  strGen value handler = do
-        (proceed, strVal) <- strGen.get
-        if proceed
+        state <- strGen.get
+        if state.proceed
         then do
-            newValue <- handler value strVal
-            strGen.modify $ \(p,s) -> (p, nextString s)  -- this logic should be contained elsewhere
-            onLine strGen newValue handler
+            newValue <- handler value state.line        -- call handler with the last generated line (might call offLine)
+            strGen.modify _.{line <- state.nextLine}    -- generate the next line
+            onLine strGen newValue handler              -- continue processing with updated values
         else
             return value
     offLine :: Mutable s StringGenerator → ST s ()
-    offLine strGen = strGen.modify $ \(_, strVal) -> (false, strVal)
+    offLine strGen = strGen.modify _.{proceed = false}  -- called by handler to stop generating lines
 
 main = do
     testFile = File.new "TestFile.txt"              -- since version 3.25, otherwise <- instead of =
@@ -180,7 +182,7 @@ main = do
     println "----------------------------------------"
     println "processing each line with a non-IO impure reader, here: StringReader. (great for testing)"
     numLines <- countStringReaderLines
-    println $ "processing strings with onLine works as expected: " ++ show (3 == numLines)
+    println $ "processing strings with StringReader works as expected: " ++ show (3 == numLines)
 
     println "----------------------------------------"
     println "reading from a URL"
@@ -189,16 +191,20 @@ main = do
         println $ show num ++ ": " ++ line.substr 0 10
         if (num > 3) then urlReader.offLine else return ()
         return  $ num + 1
-    println $ "processing strings with onLine works as expected: " ++ show (result == 4)
+    println $ "processing strings from URL works as expected: " ++ show (result == 4)
 
     println "----------------------------------------"
     println "reading from a StringGenerator"
-    strGen <- Ref.new (true, "")
-    resuld <- strGen.onLine 0 $ \num line -> do
-        println $ show num ++ ": " ++ line
-        if (num > 3) then strGen.offLine else return ()
-        return  $ num + 1
-    println $ "StringGenerator works as expected: " ++ show (resuld == 4)
+    strGenRef <- Ref.new $ StrGen { proceed = true, line = "", nextLine = (++ "x") }
+    result <- strGenRef.onLine 0 $ \num line ->
+        if (num > 3)
+        then do
+            strGenRef.offLine
+            return num
+        else do
+            println $ show num ++ ": " ++ line
+            return  $ num + 1
+    println $ "StringGenerator works as expected: " ++ show (result == 4)
 
 cli = do
     println "command line input (max 10 lines or send EOF via Cmd/Ctrl-D)"
