@@ -110,6 +110,31 @@ printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>
     value <- ioValue
     println $ prefix ++ show value
 
+countStringReaderLines :: ST s Int
+countStringReaderLines = do
+    stringReader <- StringReader.new $ unlines ["first","second","third"]
+    result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
+    return result
+
+type StringGenerator = Ref (Bool, String)
+--    new str = Ref.new (true, str)
+
+nextString str = str ++ "x"
+
+instance LineProducer StringGenerator where
+    onLine  :: Mutable s StringGenerator → a → (a → String → ST s a) → ST s a
+    onLine  strGen value handler = do
+        (proceed, strVal) <- strGen.get
+        if proceed
+        then do
+            newValue <- handler value strVal
+            strGen.modify $ \(p,s) -> (p, nextString s)  -- this logic should be contained elsewhere
+            onLine strGen newValue handler
+        else
+            return value
+    offLine :: Mutable s StringGenerator → ST s ()
+    offLine strGen = strGen.modify $ \(_, strVal) -> (false, strVal)
+
 main = do
     testFile = File.new "TestFile.txt"              -- since version 3.25, otherwise <- instead of =
 
@@ -154,9 +179,8 @@ main = do
 
     println "----------------------------------------"
     println "processing each line with a non-IO impure reader, here: StringReader. (great for testing)"
-    stringReader <- StringReader.new $ unlines ["first","second","third"]
-    result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
-    println $ "processing strings with eachLine works as expected: " ++ show (result == 3)
+    numLines <- countStringReaderLines
+    println $ "processing strings with onLine works as expected: " ++ show (3 == numLines)
 
     println "----------------------------------------"
     println "reading from a URL"
@@ -166,6 +190,15 @@ main = do
         if (num > 3) then urlReader.offLine else return ()
         return  $ num + 1
     println $ "processing strings with onLine works as expected: " ++ show (result == 4)
+
+    println "----------------------------------------"
+    println "reading from a StringGenerator"
+    strGen <- Ref.new (true, "")
+    resuld <- strGen.onLine 0 $ \num line -> do
+        println $ show num ++ ": " ++ line
+        if (num > 3) then strGen.offLine else return ()
+        return  $ num + 1
+    println $ "StringGenerator works as expected: " ++ show (resuld == 4)
 
 cli = do
     println "command line input (max 10 lines or send EOF via Cmd/Ctrl-D)"
