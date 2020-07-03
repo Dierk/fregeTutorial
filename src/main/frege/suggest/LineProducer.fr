@@ -1,31 +1,22 @@
 module suggest.LineProducer where
 
+{--
+    Type for a consumer in state thread 's'
+    that builds up an accumulation of type 'a'
+    when consuming a product of type 'p'
+-}
+type Consumer     s a p = a → p → ST s a
 
-type Consumer     s a b = a → b → ST s a
+---  Consumer type for products of type String
 type LineConsumer s a   = Consumer s a String
-
--- experimental: lining up the product type 'p' between producer and consumer
-data Operation s a p = Op {
-    produce :: a → ST s p,
-    consume :: a → p → ST s a
-} where
-    operate :: Operation s a p -> a -> ST s a
-    operate op a = do
-       p <- op.produce a
-       op.consume a p
-
-op = Op {
-    produce = \a -> return "42",
-    consume = \a p -> return $ a + 1
-}
-
-foo = op.operate 0
--- end experimental
-
 
 {--
     @LineProducer@ is a class for all types that support a common interface for in-place
-    line-by-line processing.
+    line-by-line processing that might result in immediate effects (like writing to
+    output) or building up a data structure based on the line processing.
+
+    This approach only makes sense for data that is read from external sources or is otherwise
+    unpredictable (e.g. random).
 
     Notable examples are @BufferedReader@, @File@, @URL@, and @stdin@, while
     some line producers are not even IO dependent like @StringReader@ and @StringGenerator@.
@@ -33,33 +24,40 @@ foo = op.operate 0
 class LineProducer lp where
     {-- The _onLine_ function is called to process a line whenever a line is produced.
 
-        > onLine lineProducer startValue handler
+        > onLine lineProducer startValue consume
 
-        where _handler_ is a function that takes an accumulator of the same type as the _startValue_ and
-        the newly produced line as a @String@. The _handler_ returns the accumulated value as the result of a
+        where _consume_ is a @LineConsumer@ function that takes an accumulator of the same
+        type as the _startValue_ and the newly produced line as a @String@.
+        It returns the accumulated value as the result of a
         state transition (most often that is IO).
 
         The _onLine_ function returns the total accumulated value as the result of a state transition.
     -}
     onLine  :: Mutable s lp → a → LineConsumer s a → ST s a
 
-    --- The _offLine_ function stops further production of lines.
+    {--
+        The _offLine_ function stops the production (and therefore also consumption) of further lines.
+
+        It is usually called from the @LineConsumer@ to end processing before all lines are processed.
+        In that case, it is *not guaranteed* that any trailing instructions after calling _offLine_ in
+        the LineConsumer are executed.
+    -}
     offLine :: Mutable s lp → ST s ()
 
 instance LineProducer BufferedReader where
     onLine :: Mutable s BufferedReader → a → LineConsumer s a → ST s a
-    onLine bufferedReader value handler = do
+    onLine bufferedReader accu consume = do
         line <- bufferedReader.readLine
             `catch` \(e :: IOException)  -> return Nothing
         case line of
             Nothing   -> do
                 offLine bufferedReader
-                return value
+                return accu
             Just line -> do
-                newValue <- handler value line
-                onLine bufferedReader newValue handler
+                newValue <- consume accu line
+                onLine bufferedReader newValue consume      -- recurse
     offLine :: Mutable s BufferedReader → ST s ()
-    offLine bufferedReader = bufferedReader.close
+    offLine bufferedReader = bufferedReader.close           -- throws IOE for read after close
 
 data StringReader = native java.io.StringReader where
     native new      :: String -> STMutable s StringReader
@@ -67,7 +65,7 @@ data StringReader = native java.io.StringReader where
 
 instance LineProducer StringReader where
     onLine  :: Mutable s StringReader → a → LineConsumer s a → ST s a
-    onLine  stringReader value handler = (BufferedReader.new stringReader) >>= \br -> onLine br value handler
+    onLine  stringReader accu consume = (BufferedReader.new stringReader) >>= \br -> onLine br accu consume
     offLine :: Mutable s StringReader → ST s ()
     offLine stringReader = stringReader.close
 
@@ -92,10 +90,11 @@ makeMutable file = LpFile.new file.getPath
 {- Convenience functions for line producers that delegate to a buffered reader and
    signal the end of processing via throwing EOF, which we catch and properly
    close the reader.
+   Used for File and URL.
 -}
-private relayWithCatch bufferedReader value handler =
-    onLine bufferedReader value $ \currentState line -> do
-        handler currentState line `catch` \(e :: EOFException) -> do
+private relayWithCatch bufferedReader accu consume =
+    onLine bufferedReader accu $ \currentState line -> do
+        consume currentState line `catch` \(e :: EOFException) -> do
             offLine bufferedReader
             return currentState
 private relayOffLine _ = do
@@ -104,10 +103,10 @@ private relayOffLine _ = do
 
 instance LineProducer LpFile where
     onLine  :: Mutable s LpFile → a → LineConsumer s a → ST s a
-    onLine  file value handler = do
+    onLine  file accu consume = do
         path <- file.getPath
         bufferedReader <- openReader path -- todo allow more encodings than UTF-8
-        relayWithCatch bufferedReader value handler
+        relayWithCatch bufferedReader accu consume
     offLine :: Mutable s LpFile → ST s ()
     offLine = relayOffLine
 
@@ -120,20 +119,15 @@ data LpURL = native java.net.URL where
 
 instance LineProducer LpURL where
     onLine  :: Mutable s LpURL → a → LineConsumer s a → ST s a
-    onLine  xurl value handler = do
+    onLine  xurl accu consume = do
         uis <- LpURL.openStream xurl
         isr <- InputStreamReader.new uis "UTF-8"    -- todo: encoding depends on the protocol ...
         bufferedReader <- BufferedReader.new isr
-        relayWithCatch bufferedReader value handler
+        relayWithCatch bufferedReader accu consume
     offLine :: Mutable s LpURL → ST s ()
     offLine = relayOffLine
 
--- convenience output
-printIOValue prefix ioValue = do  -- same as:  (prefix ++) . show <$> ioValue >>= println
-    value <- ioValue
-    println $ prefix ++ show value
-
-countStringReaderLines :: ST s Int
+countStringReaderLines :: ST s Int      -- just to show that IO is not always needed
 countStringReaderLines = do
     stringReader <- StringReader.new $ unlines ["first","second","third"]
     result <- stringReader.onLine 0 $ \num _ -> return  $ num + 1
@@ -148,15 +142,15 @@ type StringGenerator = Ref StrGenData   -- a mutable reference to the generator 
 
 instance LineProducer StringGenerator where
     onLine  :: Mutable s StringGenerator → a → LineConsumer s a → ST s a
-    onLine  strGen value handler = do
+    onLine  strGen accu consume = do
         state <- strGen.get
         if state.proceed
         then do
-            newValue <- handler value state.line        -- call handler with the last generated line (might call offLine)
+            newValue <- consume accu state.line        -- call handler with the last generated line (might call offLine)
             strGen.modify _.{line <- state.nextLine}    -- generate the next line
-            onLine strGen newValue handler              -- continue processing with updated values
+            onLine strGen newValue consume              -- continue processing with updated values
         else
-            return value
+            return accu
     offLine :: Mutable s StringGenerator → ST s ()
     offLine strGen = strGen.modify _.{proceed = false}  -- called by handler to stop generating lines
 
@@ -166,11 +160,13 @@ main = do
     println "----------------------------------------"
     println "general file handling"
     -- delete test file if it already existed
-    printIOValue "Test file deleted to clean up before start: " testFile.delete
+    result <- testFile.delete
+    println $ "Test file deleted to clean up before start: " ++ show result
 
     println "create test file"
     writeFile testFile.getPath $ unlines ["first line","second line","third line"]
-    printIOValue "File now exists: " testFile.exists
+    result <- testFile.exists
+    println $ "File now exists: " ++ show result
 
     println "read test file in toto"
     content <- readFile testFile.getPath
