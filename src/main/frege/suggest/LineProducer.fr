@@ -1,11 +1,15 @@
 module suggest.LineProducer where
 
+
+type Consumer     s a b = a → b → ST s a
+type LineConsumer s a   = Consumer s a String
+
 {--
     @LineProducer@ is a class for all types that support a common interface for in-place
     line-by-line processing.
 
     Notable examples are @BufferedReader@, @File@, @URL@, and @stdin@, while
-    some line producers are not even IO dependent like @StringReader@.
+    some line producers are not even IO dependent like @StringReader@ and @StringGenerator@.
 -}
 class LineProducer lp where
     {-- The _onLine_ function is called to process a line whenever a line is produced.
@@ -18,13 +22,13 @@ class LineProducer lp where
 
         The _onLine_ function returns the total accumulated value as the result of a state transition.
     -}
-    onLine  :: Mutable s lp → a → (a → String → ST s a) → ST s a
+    onLine  :: Mutable s lp → a → LineConsumer s a → ST s a
 
     --- The _offLine_ function stops further production of lines.
     offLine :: Mutable s lp → ST s ()
 
 instance LineProducer BufferedReader where
-    onLine :: Mutable s BufferedReader → a → (a → String → ST s a) → ST s a
+    onLine :: Mutable s BufferedReader → a → LineConsumer s a → ST s a
     onLine bufferedReader value handler = do
         line <- bufferedReader.readLine
             `catch` \(e :: IOException)  -> return Nothing
@@ -43,7 +47,7 @@ data StringReader = native java.io.StringReader where
     native close    :: Mutable s StringReader -> ST s ()
 
 instance LineProducer StringReader where
-    onLine  :: Mutable s StringReader → a → (a → String → ST s a) → ST s a
+    onLine  :: Mutable s StringReader → a → LineConsumer s a → ST s a
     onLine  stringReader value handler = (BufferedReader.new stringReader) >>= \br -> onLine br value handler
     offLine :: Mutable s StringReader → ST s ()
     offLine stringReader = stringReader.close
@@ -80,7 +84,7 @@ private relayOffLine _ = do
     return ()
 
 instance LineProducer LpFile where
-    onLine  :: Mutable s LpFile → a → (a → String → ST s a) → ST s a
+    onLine  :: Mutable s LpFile → a → LineConsumer s a → ST s a
     onLine  file value handler = do
         path <- file.getPath
         bufferedReader <- openReader path -- todo allow more encodings than UTF-8
@@ -96,7 +100,7 @@ data LpURL = native java.net.URL where
     native openStream       :: Mutable s LpURL -> STMutable s InputStream throws IOException
 
 instance LineProducer LpURL where
-    onLine  :: Mutable s LpURL → a → (a → String → ST s a) → ST s a
+    onLine  :: Mutable s LpURL → a → LineConsumer s a → ST s a
     onLine  xurl value handler = do
         uis <- LpURL.openStream xurl
         isr <- InputStreamReader.new uis "UTF-8"    -- todo: encoding depends on the protocol ...
@@ -124,7 +128,7 @@ data StrGenData = StrGen {
 type StringGenerator = Ref StrGenData   -- a mutable reference to the generator data
 
 instance LineProducer StringGenerator where
-    onLine  :: Mutable s StringGenerator → a → (a → String → ST s a) → ST s a
+    onLine  :: Mutable s StringGenerator → a → LineConsumer s a → ST s a
     onLine  strGen value handler = do
         state <- strGen.get
         if state.proceed
