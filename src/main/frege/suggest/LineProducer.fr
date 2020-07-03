@@ -4,19 +4,21 @@ module suggest.LineProducer where
 type Consumer     s a b = a → b → ST s a
 type LineConsumer s a   = Consumer s a String
 
-data Operation p = Op {
-    produce :: () -> p,
-    consume :: p -> ()
+data Operation s a p = Op {
+    produce :: a → ST s p,
+    consume :: a → p → ST s a
 } where
-    operate :: (Operation p) -> ()
-    operate op = op.consume $ op.produce ()
+    operate :: Operation s a p -> a -> ST s a
+    operate op a = do
+       p <- op.produce a
+       op.consume a p
 
 op = Op {
-    produce = \_ -> 42,
-    consume = \x -> ()
+    produce = \a -> return "42",
+    consume = \a p -> return $ a + 1
 }
 
-foo = op.operate
+foo = op.operate 0
 
 
 {--
