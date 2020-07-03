@@ -4,6 +4,7 @@ module suggest.LineProducer where
 type Consumer     s a b = a → b → ST s a
 type LineConsumer s a   = Consumer s a String
 
+-- experimental: lining up the product type 'p' between producer and consumer
 data Operation s a p = Op {
     produce :: a → ST s p,
     consume :: a → p → ST s a
@@ -19,6 +20,7 @@ op = Op {
 }
 
 foo = op.operate 0
+-- end experimental
 
 
 {--
