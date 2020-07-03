@@ -4,6 +4,21 @@ module suggest.LineProducer where
 type Consumer     s a b = a → b → ST s a
 type LineConsumer s a   = Consumer s a String
 
+data Operation p = Op {
+    produce :: () -> p,
+    consume :: p -> ()
+} where
+    operate :: (Operation p) -> ()
+    operate op = op.consume $ op.produce ()
+
+op = Op {
+    produce = \_ -> 42,
+    consume = \x -> ()
+}
+
+foo = op.operate
+
+
 {--
     @LineProducer@ is a class for all types that support a common interface for in-place
     line-by-line processing.
