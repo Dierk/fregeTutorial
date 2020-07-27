@@ -1,0 +1,51 @@
+module suggest.Producer where
+
+type Consumer     s a p = a → p → ST s a
+
+type LineConsumer s a   = Consumer s a String
+
+data Producer lp s a p = Producer {
+    onLine  :: Mutable s lp → a → Consumer s a p → ST s a,
+    offLine :: Mutable s lp → ST s ()
+}
+
+--class LineProducer lp where
+--    onLine  :: Mutable s lp → a → LineConsumer s a → ST s a
+--    offLine :: Mutable s lp → ST s ()
+
+data StrGenData = StrGen {
+    proceed     :: Bool,                -- if false we stop generating lines
+    line        :: String,              -- the currently generated line, "onLine" will be called with this
+    nextLine    :: String -> String     -- the generation function for the next line
+}
+type StringGenerator = Ref StrGenData   -- a mutable reference to the generator data
+
+stringGenerator :: Producer StringGenerator s a String
+stringGenerator = Producer {
+--    onLine  :: Mutable s StringGenerator → a → LineConsumer s a → ST s a
+    onLine = \strGen accu consume -> do
+        state <- strGen.get
+        if state.proceed
+        then do
+            newValue <- consume accu state.line        -- call handler with the last generated line (might call offLine)
+            strGen.modify _.{line <- state.nextLine}    -- generate the next line
+            stringGenerator.onLine strGen newValue consume              -- continue processing with updated values
+        else
+            return accu,
+--    offLine :: Mutable s StringGenerator → ST s ()
+    offLine = \strGen -> strGen.modify _.{proceed = false}  -- called by handler to stop generating lines
+}
+
+main = do
+    println "----------------------------------------"
+    println "reading from a StringGenerator"
+    strGenRef <- Ref.new $ StrGen { proceed = true, line = "", nextLine = (++ "x") }
+    result <- stringGenerator.onLine strGenRef 0 $ \num line ->
+        if (num > 3)
+        then do
+            stringGenerator.offLine strGenRef
+            return num
+        else do
+            println $ show num ++ ": " ++ line
+            return  $ num + 1
+    println $ "StringGenerator works as expected: " ++ show (result == 4)
