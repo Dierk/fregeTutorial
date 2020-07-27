@@ -1,51 +1,61 @@
 module suggest.Producer where
 
-type Consumer     s a p = a → p → ST s a
+type Consumer s accu product = accu → product → ST s accu
 
-type LineConsumer s a   = Consumer s a String
-
-data Producer lp s a p = Producer {
-    onLine  :: Mutable s lp → a → Consumer s a p → ST s a,
-    offLine :: Mutable s lp → ST s ()
+data Producer productionType s accu product = Producer {
+    onLine  :: Mutable s productionType → accu → Consumer s accu product → ST s accu,
+    offLine :: Mutable s productionType → ST s ()
 }
 
 --class LineProducer lp where
 --    onLine  :: Mutable s lp → a → LineConsumer s a → ST s a
 --    offLine :: Mutable s lp → ST s ()
 
-data StrGenData = StrGen {
+data ProductionData p = ProductionData {
     proceed     :: Bool,                -- if false we stop generating lines
-    line        :: String,              -- the currently generated line, "onLine" will be called with this
-    nextLine    :: String -> String     -- the generation function for the next line
+    product        :: p,              -- the currently generated product, "onLine" will be called with this
+    nextProduct    :: p -> p     -- the generation function for the next product
 }
-type StringGenerator = Ref StrGenData   -- a mutable reference to the generator data
+type Production p = Ref (ProductionData p)   -- a mutable reference to the generator data
+type DataProducer s a p = Producer (Production p) s a p
 
-stringGenerator :: Producer StringGenerator s a String
-stringGenerator = Producer {
---    onLine  :: Mutable s StringGenerator → a → LineConsumer s a → ST s a
-    onLine = \strGen accu consume -> do
-        state <- strGen.get
+dataProducer :: DataProducer s a p
+dataProducer = Producer {
+    onLine = \production accu consume -> do
+        state <- production.get
         if state.proceed
         then do
-            newValue <- consume accu state.line        -- call handler with the last generated line (might call offLine)
-            strGen.modify _.{line <- state.nextLine}    -- generate the next line
-            stringGenerator.onLine strGen newValue consume              -- continue processing with updated values
+            newValue <- consume accu state.product        -- call handler with the last generated product (might call offLine)
+            production.modify _.{product <- state.nextProduct}    -- generate the next product
+            dataProducer.onLine production newValue consume              -- continue processing with updated values
         else
             return accu,
---    offLine :: Mutable s StringGenerator → ST s ()
-    offLine = \strGen -> strGen.modify _.{proceed = false}  -- called by handler to stop generating lines
+    offLine = \production -> production.modify _.{proceed = false}  -- called by handler to stop generating lines
 }
 
 main = do
     println "----------------------------------------"
-    println "reading from a StringGenerator"
-    strGenRef <- Ref.new $ StrGen { proceed = true, line = "", nextLine = (++ "x") }
-    result <- stringGenerator.onLine strGenRef 0 $ \num line ->
+    println "reading from a StringProducer"
+    stringProduction <- Ref.new $ ProductionData { proceed = true, product = "", nextProduct = (++ "x") }
+    result <- dataProducer.onLine stringProduction 0 $ \num line ->
         if (num > 3)
         then do
-            stringGenerator.offLine strGenRef
+            dataProducer.offLine stringProduction
             return num
         else do
             println $ show num ++ ": " ++ line
             return  $ num + 1
-    println $ "StringGenerator works as expected: " ++ show (result == 4)
+    println $ "StringProducer works as expected: " ++ show (result == 4)
+
+    println "----------------------------------------"
+    println "reading from an IntProducer"
+    intProduction <- Ref.new $ ProductionData { proceed = true, product = 0, nextProduct = (+1) }
+    result <- dataProducer.onLine intProduction 0 $ \_ product ->
+        if (product > 3)
+        then do
+            dataProducer.offLine intProduction
+            return product
+        else do
+            println $ show product
+            return  product
+    println $ "IntProducer works as expected: " ++ show (result == 4)
