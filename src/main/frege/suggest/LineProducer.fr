@@ -5,7 +5,7 @@ module suggest.LineProducer where
     that builds up an accumulation of type 'a'
     when consuming a product of type 'p'
 -}
-type Consumer     s a p = a → p → ST s a
+type Consumer s a p = a → p → ST s a
 
 ---  Consumer type for products of type String
 type LineConsumer s a   = Consumer s a String
@@ -73,11 +73,13 @@ data FileInputStream = native java.io.FileInputStream where
     native new :: String  -> STMutable s FileInputStream        -- todo: needs to be changed in frege
                     throws FileNotFoundException
 
-openReader :: String -> STMutable s BufferedReader              -- todo: needs to be changed in frege
-openReader fileName = do
+openReaderEnc :: String -> String -> STMutable s BufferedReader              -- todo: needs to be changed in frege
+openReaderEnc encoding fileName = do
     fis <- FileInputStream.new (fileName :: String )
-    isr <- InputStreamReader.new fis "UTF-8"
+    isr <- InputStreamReader.new fis encoding
     BufferedReader.new isr
+
+openReader = openReaderEnc "UTF-8"
 
 data LpFile = native java.io.File where
     native new           :: String -> STMutable s LpFile
